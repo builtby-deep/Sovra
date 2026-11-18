@@ -22,8 +22,10 @@ public final class DebugActivity extends Activity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         String suppliedTrace = getIntent().getStringExtra(EXTRA_STACK_TRACE);
-        final String stackTrace = suppliedTrace == null || suppliedTrace.trim().isEmpty()
-                ? "No stack trace was provided." : suppliedTrace;
+        String savedTrace = getSharedPreferences("sp5", MODE_PRIVATE)
+                .getString("last_crash", null);
+        final String stackTrace = suppliedTrace != null ? suppliedTrace
+                : savedTrace != null ? savedTrace : "No stack trace was provided.";
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);

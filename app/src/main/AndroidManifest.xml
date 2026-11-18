@@ -65,6 +65,7 @@
 
         <activity
             android:name=".system.DebugActivity"
+            android:process=":debug"
             android:exported="false" />
 
         <service

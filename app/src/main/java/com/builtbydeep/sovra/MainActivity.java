@@ -1,6 +1,10 @@
 package com.builtbydeep.sovra;
 
+import android.content.Context;
+import android.content.Intent;
 import android.os.Bundle;
+import android.os.Process;
+import android.util.Log;
 import android.view.MenuItem;
 import android.view.View;
 
@@ -20,6 +24,10 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 
 public final class MainActivity extends AppCompatActivity {
+    private static final String CRASH_PREFS = "sp5";
+    private static final String CRASH_KEY = "last_crash";
+    private static boolean crashHandlerInstalled;
+
     private ViewPager2 viewPager;
     private BottomNavigationView navigation;
     private final Deque<Integer> backHistory = new ArrayDeque<>();
@@ -29,6 +37,7 @@ public final class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
+        installCrashHandler(getApplicationContext());
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         View root = findViewById(R.id.main_root);
@@ -82,6 +91,46 @@ public final class MainActivity extends AppCompatActivity {
                     setEnabled(false);
                     getOnBackPressedDispatcher().onBackPressed();
                 }
+            }
+        });
+    }
+
+    private static synchronized void installCrashHandler(Context context) {
+        if (crashHandlerInstalled) return;
+        crashHandlerInstalled = true;
+
+        Context applicationContext = context.getApplicationContext();
+        Thread.UncaughtExceptionHandler previousHandler =
+                Thread.getDefaultUncaughtExceptionHandler();
+        Thread.setDefaultUncaughtExceptionHandler((thread, throwable) -> {
+            String stackTrace = Log.getStackTraceString(throwable);
+            try {
+                boolean saved = applicationContext.getSharedPreferences(
+                                CRASH_PREFS, Context.MODE_PRIVATE)
+                        .edit()
+                        .putString(CRASH_KEY, stackTrace)
+                        .commit();
+                if (!saved) {
+                    Log.e("SovraCrashHandler", "Unable to persist the crash report");
+                }
+
+                Intent debugIntent = new Intent(applicationContext,
+                        com.builtbydeep.sovra.system.DebugActivity.class);
+                debugIntent.putExtra(
+                        com.builtbydeep.sovra.system.DebugActivity.EXTRA_STACK_TRACE, stackTrace);
+                debugIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK
+                        | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+                applicationContext.startActivity(debugIntent);
+            } catch (Throwable reportingFailure) {
+                Log.e("SovraCrashHandler", "Unable to open the crash report screen",
+                        reportingFailure);
+            }
+
+            if (previousHandler != null) {
+                previousHandler.uncaughtException(thread, throwable);
+            } else {
+                Process.killProcess(Process.myPid());
+                System.exit(10);
             }
         });
     }
