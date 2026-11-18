@@ -17,9 +17,9 @@ import android.speech.RecognizerIntent;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
@@ -69,6 +69,7 @@ public final class GenerateFragmentActivity extends Fragment {
     private Spinner stepsSelector;
     private View supertonicOptions;
     private ProgressBar progress;
+    private TextView synthesisStatus;
     private WaveformView waveform;
     private MaterialButton playButton;
     private byte[] generatedPcm;
@@ -113,9 +114,16 @@ public final class GenerateFragmentActivity extends Fragment {
         stepsSelector = view.findViewById(R.id.supertonic_steps_selector);
         supertonicOptions = view.findViewById(R.id.supertonic_options);
         progress = view.findViewById(R.id.synthesis_progress);
+        synthesisStatus = view.findViewById(R.id.synthesis_status);
         waveform = view.findViewById(R.id.waveform);
         playButton = view.findViewById(R.id.play_button);
 
+        view.findViewById(R.id.history_button).setOnClickListener(v ->
+                ((com.google.android.material.bottomnavigation.BottomNavigationView)
+                        requireActivity().findViewById(R.id.bottom_navigation))
+                        .setSelectedItemId(R.id.nav_library));
+        view.findViewById(R.id.reader_button).setOnClickListener(v ->
+                startActivity(new Intent(requireContext(), EpubReaderActivity.class)));
         view.findViewById(R.id.import_button).setOnClickListener(v ->
                 importLauncher.launch(new String[]{"text/plain", "application/pdf"}));
         view.findViewById(R.id.mic_button).setOnClickListener(v ->
@@ -125,6 +133,8 @@ public final class GenerateFragmentActivity extends Fragment {
         view.findViewById(R.id.generate_button).setOnClickListener(v -> generate());
         view.findViewById(R.id.export_button).setOnClickListener(v -> exportWav());
         playButton.setOnClickListener(v -> togglePlayback());
+        waveform.setVisibility(View.GONE);
+        playButton.setVisibility(View.GONE);
         waveform.setSeekListener(this::seekTo);
 
         setItems(regionSelector, Arrays.asList(KOKORO_REGIONS));
@@ -213,11 +223,18 @@ public final class GenerateFragmentActivity extends Fragment {
     private void updateVoiceSelectors() {
         String type = requireContext().getSharedPreferences("sp1", 0)
                 .getString("active_model_type", "");
-        regionSelector.setVisibility("kokoro".equals(type) ? View.VISIBLE : View.GONE);
-        voiceSelector.setVisibility("kokoro".equals(type) ? View.VISIBLE : View.GONE);
-        supertonicOptions.setVisibility("supertonic".equals(type) ? View.VISIBLE : View.GONE);
-        if ("kokoro".equals(type)) populateKokoroVoices(currentRegion());
-        if ("supertonic".equals(type)) {
+        boolean kokoro = "kokoro".equals(type);
+        boolean supertonic = "supertonic".equals(type);
+        regionSelector.setVisibility(kokoro ? View.VISIBLE : View.GONE);
+        voiceSelector.setVisibility(supertonic ? View.GONE : View.VISIBLE);
+        supertonicOptions.setVisibility(supertonic ? View.VISIBLE : View.GONE);
+        voiceSelector.setEnabled(kokoro);
+        if (!kokoro && !supertonic) {
+            voiceSelector.setOnItemSelectedListener(null);
+            setItems(voiceSelector, Arrays.asList("Default voice"));
+        }
+        if (kokoro) populateKokoroVoices(currentRegion());
+        if (supertonic) {
             int speaker = requireContext().getSharedPreferences("sp1", 0)
                     .getInt("active_supertonic_speaker", 0);
             supertonicVoiceSelector.setSelection(Math.max(0, Math.min(9, speaker)));
@@ -337,6 +354,7 @@ public final class GenerateFragmentActivity extends Fragment {
         final String requestText = text;
         Context context = requireContext().getApplicationContext();
         progress.setVisibility(View.VISIBLE);
+        synthesisStatus.setText("SYNTHESIZING...");
         viewEnable(false);
         synthesisExecutor.execute(() -> {
             try {
@@ -346,17 +364,26 @@ public final class GenerateFragmentActivity extends Fragment {
                     generatedPcm = result.pcm;
                     sampleRate = result.sampleRate;
                     waveform.setPcm(generatedPcm);
+                    waveform.setVisibility(generatedPcm.length == 0 ? View.GONE : View.VISIBLE);
+                    playButton.setVisibility(generatedPcm.length == 0 ? View.GONE : View.VISIBLE);
+                    synthesisStatus.setText(generatedPcm.length == 0
+                            ? "READY TO SYNTHESIZE" : "AUDIO READY");
                     prepareAudioTrack();
                     progress.setVisibility(View.GONE);
                     viewEnable(true);
                     if (generatedPcm.length == 0) showMessage("No audio was generated");
                 });
-            } catch (Exception exception) {
+            } catch (Throwable failure) {
                 mainHandler.post(() -> {
                     if (!isAdded()) return;
                     progress.setVisibility(View.GONE);
+                    synthesisStatus.setText("SYNTHESIS FAILED");
                     viewEnable(true);
-                    showMessage("Synthesis failed: " + exception.getMessage());
+                    String message = failure.getMessage();
+                    if (message == null || message.trim().isEmpty()) {
+                        message = failure.getClass().getSimpleName();
+                    }
+                    showMessage("Synthesis failed: " + message);
                 });
             }
         });
@@ -397,23 +424,26 @@ public final class GenerateFragmentActivity extends Fragment {
         }
         if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) {
             audioTrack.pause();
-            playButton.setText("Play");
+            playButton.setIconResource(R.drawable.ic_play);
+            playButton.setContentDescription("Play generated audio");
         } else {
             if (audioTrack.getPlaybackHeadPosition() >= generatedPcm.length / 2) {
                 audioTrack.setPlaybackHeadPosition(0);
             }
             audioTrack.play();
-            playButton.setText("Pause");
+            playButton.setIconResource(R.drawable.ic_pause);
+            playButton.setContentDescription("Pause generated audio");
             updateWaveformProgress();
         }
     }
 
     private void seekTo(float fraction) {
         if (audioTrack == null || generatedPcm == null) return;
-        if (audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING) audioTrack.pause();
+        boolean wasPlaying = audioTrack.getPlayState() == AudioTrack.PLAYSTATE_PLAYING;
+        if (wasPlaying) audioTrack.pause();
         int frames = generatedPcm.length / 2;
         audioTrack.setPlaybackHeadPosition((int) (frames * fraction));
-        if (playButton.getText().toString().equals("Pause")) audioTrack.play();
+        if (wasPlaying) audioTrack.play();
     }
 
     private void updateWaveformProgress() {
@@ -423,7 +453,8 @@ public final class GenerateFragmentActivity extends Fragment {
         waveform.setProgress(frames == 0 ? 0f : Math.min(1f, position / (float) frames));
         if (position >= frames) {
             audioTrack.pause();
-            playButton.setText("Play");
+            playButton.setIconResource(R.drawable.ic_play);
+            playButton.setContentDescription("Play generated audio");
             return;
         }
         mainHandler.postDelayed(this::updateWaveformProgress, 40);
@@ -531,8 +562,7 @@ public final class GenerateFragmentActivity extends Fragment {
     }
 
     private static void setItems(Spinner spinner, List<String> values) {
-        spinner.setAdapter(new ArrayAdapter<>(spinner.getContext(),
-                android.R.layout.simple_spinner_dropdown_item, values));
+        spinner.setAdapter(new SovraSpinnerAdapter(spinner.getContext(), values));
     }
 
     private interface ItemSelected {

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="SovraMaterialButton" parent="Widget.Material3.Button">
+        <item name="cornerRadius">10dp</item>
+    </style>
+
+    <style name="SovraIconButton" parent="Widget.Material3.Button">
+        <item name="cornerRadius">12dp</item>
+        <item name="android:minWidth">44dp</item>
+        <item name="android:minHeight">44dp</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+    </style>
+
+    <style name="SovraLinkButton" parent="Widget.Material3.Button">
+        <item name="cornerRadius">10dp</item>
+        <item name="android:gravity">start|center_vertical</item>
+        <item name="android:insetLeft">0dp</item>
+        <item name="android:insetRight">0dp</item>
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textColor">@color/sovra_text</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+    </style>
+
+    <style name="SovraTextInput">
+        <item name="android:background">@drawable/bg_edit_text</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textColorHint">#6B7280</item>
+        <item name="android:padding">12dp</item>
+    </style>
+
+    <style name="SovraSpinner">
+        <item name="android:backgroundTint">@color/sovra_accent</item>
+        <item name="android:popupBackground">@color/sovra_surface</item>
+    </style>
+</resources>

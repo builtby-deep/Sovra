@@ -4,6 +4,7 @@ import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.content.res.ColorStateList;
 import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
@@ -49,6 +50,11 @@ public final class LibraryFragmentActivity extends Fragment {
         }
     };
     private LinearLayout entryContainer;
+    private View emptyState;
+    private View libraryScroll;
+    private View miniPlayer;
+    private MaterialButton allButton;
+    private MaterialButton favoritesButton;
     private TextView nowPlaying;
     private SeekBar seekBar;
     private MediaPlayer player;
@@ -70,14 +76,19 @@ public final class LibraryFragmentActivity extends Fragment {
     @Override
     public void onViewCreated(View view, Bundle state) {
         entryContainer = view.findViewById(R.id.library_entries);
+        emptyState = view.findViewById(R.id.empty_state);
+        libraryScroll = view.findViewById(R.id.library_scroll);
+        miniPlayer = view.findViewById(R.id.mini_player);
+        allButton = view.findViewById(R.id.library_all);
+        favoritesButton = view.findViewById(R.id.library_favorites);
         nowPlaying = view.findViewById(R.id.now_playing);
         seekBar = view.findViewById(R.id.library_seek);
         audioManager = (AudioManager) requireContext().getSystemService(Context.AUDIO_SERVICE);
-        view.findViewById(R.id.library_all).setOnClickListener(v -> {
+        allButton.setOnClickListener(v -> {
             showFavorites = false;
             renderEntries();
         });
-        view.findViewById(R.id.library_favorites).setOnClickListener(v -> {
+        favoritesButton.setOnClickListener(v -> {
             showFavorites = true;
             renderEntries();
         });
@@ -178,26 +189,30 @@ public final class LibraryFragmentActivity extends Fragment {
             SovraLibraryEntry entry = entries.get(i);
             if (showFavorites && !entry.favorite) continue;
             MaterialCardView card = new MaterialCardView(requireContext());
-            card.setCardBackgroundColor(0xff1a1d2e);
-            card.setStrokeColor(0xff2a2f45);
+            card.setCardBackgroundColor(requireContext().getColor(R.color.sovra_surface));
+            card.setStrokeColor(requireContext().getColor(R.color.sovra_border));
             card.setStrokeWidth(dp(1));
+            card.setRadius(dp(14));
             LinearLayout content = new LinearLayout(requireContext());
             content.setPadding(dp(14), dp(12), dp(12), dp(8));
             content.setOrientation(LinearLayout.VERTICAL);
             TextView title = new TextView(requireContext());
             title.setText(entry.title == null ? "Sovra recording" : entry.title);
-            title.setTextColor(0xfff5f6fa);
+            title.setTextColor(requireContext().getColor(R.color.sovra_text));
             title.setTextSize(17);
             content.addView(title);
             TextView details = new TextView(requireContext());
             details.setText(entry.voiceName == null ? "" : entry.voiceName);
-            details.setTextColor(0xffa5a9b8);
+            details.setTextColor(requireContext().getColor(R.color.sovra_muted));
             content.addView(details);
             LinearLayout actions = new LinearLayout(requireContext());
             MaterialButton play = new MaterialButton(requireContext());
             play.setText("Play");
             play.setOnClickListener(v -> playEntry(index));
-            actions.addView(play);
+            LinearLayout.LayoutParams actionParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            actionParams.setMargins(dp(3), 0, dp(3), 0);
+            actions.addView(play, actionParams);
             MaterialButton favorite = new MaterialButton(requireContext());
             favorite.setText(entry.favorite ? "★ Favorite" : "☆ Favorite");
             favorite.setOnClickListener(v -> {
@@ -205,7 +220,10 @@ public final class LibraryFragmentActivity extends Fragment {
                 persistEntries();
                 renderEntries();
             });
-            actions.addView(favorite);
+            LinearLayout.LayoutParams favoriteParams = new LinearLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            favoriteParams.setMargins(dp(3), 0, dp(3), 0);
+            actions.addView(favorite, favoriteParams);
             content.addView(actions);
             card.addView(content);
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
@@ -213,13 +231,24 @@ public final class LibraryFragmentActivity extends Fragment {
             params.bottomMargin = dp(8);
             entryContainer.addView(card, params);
         }
-        if (entryContainer.getChildCount() == 0) {
-            TextView empty = new TextView(requireContext());
-            empty.setText(showFavorites ? "No favorites yet" : "Generated WAV files appear here");
-            empty.setTextColor(0xffa5a9b8);
-            empty.setPadding(dp(12), dp(20), dp(12), dp(20));
-            entryContainer.addView(empty);
-        }
+        boolean hasVisibleEntries = entryContainer.getChildCount() > 0;
+        emptyState.setVisibility(hasVisibleEntries ? View.GONE : View.VISIBLE);
+        libraryScroll.setVisibility(hasVisibleEntries ? View.VISIBLE : View.GONE);
+        miniPlayer.setVisibility(entries.isEmpty() ? View.GONE : View.VISIBLE);
+        updateFilterButtons();
+    }
+
+    private void updateFilterButtons() {
+        int activeColor = requireContext().getColor(R.color.sovra_accent);
+        int inactiveColor = requireContext().getColor(R.color.sovra_border);
+        allButton.setStrokeColor(ColorStateList.valueOf(
+                showFavorites ? inactiveColor : activeColor));
+        favoritesButton.setStrokeColor(ColorStateList.valueOf(
+                showFavorites ? activeColor : inactiveColor));
+        allButton.setTextColor(showFavorites
+                ? requireContext().getColor(R.color.sovra_muted) : activeColor);
+        favoritesButton.setTextColor(showFavorites
+                ? activeColor : requireContext().getColor(R.color.sovra_muted));
     }
 
     private void playEntry(int index) {

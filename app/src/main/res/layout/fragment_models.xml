@@ -1,73 +1,141 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="16dp"
     android:background="@color/sovra_background">
-    <TextView
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:orientation="vertical"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="18dp"
+        android:paddingBottom="8dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="Manage Voice Models"
+                android:textColor="@color/sovra_text"
+                android:textSize="22sp"
+                android:textStyle="bold" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="132dp"
+                android:layout_height="48dp"
+                app:cardBackgroundColor="@color/sovra_surface"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/sovra_border"
+                app:strokeWidth="1dp">
+
+                <Spinner
+                    android:id="@+id/model_filter"
+                    style="@style/SovraSpinner"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:paddingHorizontal="10dp" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="18dp"
+            app:cardBackgroundColor="@color/sovra_surface"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="@color/sovra_border"
+            app:strokeWidth="1dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <ImageView
+                        android:layout_width="26dp"
+                        android:layout_height="26dp"
+                        android:contentDescription="@null"
+                        android:src="@drawable/ic_storage" />
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="10dp"
+                        android:layout_weight="1"
+                        android:text="Local Storage"
+                        android:textColor="@color/sovra_text"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <TextView
+                    android:id="@+id/storage_usage"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="Calculating storage..."
+                    android:textColor="@color/sovra_muted"
+                    android:textSize="12sp" />
+
+                <ProgressBar
+                    android:id="@+id/storage_progress"
+                    style="?android:attr/progressBarStyleHorizontal"
+                    android:layout_width="match_parent"
+                    android:layout_height="6dp"
+                    android:layout_marginTop="10dp"
+                    android:indeterminate="false"
+                    android:max="100"
+                    android:progress="0"
+                    android:progressBackgroundTint="@color/sovra_border"
+                    android:progressTint="@color/sovra_accent" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <TextView
+            android:id="@+id/model_count"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="22dp"
+            android:layout_marginBottom="8dp"
+            android:letterSpacing="0.08"
+            android:text="MODELS LIST (0)"
+            android:textColor="@color/sovra_accent"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/model_list"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:clipToPadding="false"
+            android:paddingBottom="78dp" />
+    </LinearLayout>
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/import_model_button"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Voice models"
-        android:textColor="@color/sovra_text"
-        android:textSize="26sp"
-        android:textStyle="bold" />
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none">
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/model_filters"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:singleSelection="true"
-            app:selectionRequired="true">
-            <com.google.android.material.chip.Chip android:id="@+id/filter_all" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:text="All" />
-            <com.google.android.material.chip.Chip android:id="@+id/filter_downloaded" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Downloaded" />
-            <com.google.android.material.chip.Chip android:id="@+id/filter_installed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Installed" />
-            <com.google.android.material.chip.Chip android:id="@+id/filter_newest" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Newest" />
-            <com.google.android.material.chip.Chip android:id="@+id/filter_oldest" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Oldest" />
-        </com.google.android.material.chip.ChipGroup>
-    </HorizontalScrollView>
-    <com.google.android.material.textfield.TextInputLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:hint="Filter by language">
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/language_filter"
-            android:layout_width="match_parent"
-            android:layout_height="48dp"
-            android:inputType="textCapWords"
-            android:singleLine="true" />
-    </com.google.android.material.textfield.TextInputLayout>
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:scrollbars="none">
-        <com.google.android.material.chip.ChipGroup
-            android:id="@+id/language_chips"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            app:singleSelection="true"
-            app:selectionRequired="true" />
-    </HorizontalScrollView>
-    <com.google.android.material.button.MaterialButton
-        android:id="@+id/import_model_button"
-        android:layout_width="match_parent"
-        android:layout_height="46dp"
-        android:text="Import custom .onnx + .txt" />
-    <TextView
-        android:id="@+id/catalog_status"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:padding="8dp"
-        android:textColor="@color/sovra_muted" />
-    <androidx.recyclerview.widget.RecyclerView
-        android:id="@+id/model_list"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:clipToPadding="false"
-        android:paddingBottom="8dp" />
-</LinearLayout>
+        android:layout_gravity="bottom|end"
+        android:layout_marginEnd="20dp"
+        android:layout_marginBottom="16dp"
+        android:contentDescription="Import custom ONNX model and tokens"
+        app:backgroundTint="@color/sovra_accent"
+        app:srcCompat="@drawable/ic_plus"
+        app:tint="@color/sovra_text" />
+</FrameLayout>

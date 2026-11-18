@@ -52,8 +52,7 @@ public final class SupertonicEngine implements AutoCloseable {
         supertonic.setUnicodeIndexer(
                 files.getFile(SupertonicModelFiles.UNICODE_INDEXER).getAbsolutePath());
         supertonic.setVoiceStyle(files.getFile(SupertonicModelFiles.VOICE).getAbsolutePath());
-        RuntimeException lastRuntimeFailure = null;
-        LinkageError lastLinkageFailure = null;
+        Throwable lastFailure = null;
         OfflineTts selected = null;
         int selectedSampleRate = 0;
 
@@ -75,27 +74,21 @@ public final class SupertonicEngine implements AutoCloseable {
                 selected = candidate;
                 selectedSampleRate = candidate.sampleRate();
                 break;
-            } catch (RuntimeException exception) {
-                lastRuntimeFailure = exception;
+            } catch (Throwable failure) {
+                lastFailure = failure;
                 if (candidate != null) {
-                    candidate.release();
-                }
-            } catch (LinkageError error) {
-                lastLinkageFailure = error;
-                if (candidate != null) {
-                    candidate.release();
+                    try {
+                        candidate.release();
+                    } catch (Throwable releaseFailure) {
+                        failure.addSuppressed(releaseFailure);
+                    }
                 }
             }
         }
         if (selected == null) {
             IllegalStateException failure =
-                    new IllegalStateException("Supertonic failed with providers xnnpack and cpu");
-            if (lastRuntimeFailure != null) {
-                failure.addSuppressed(lastRuntimeFailure);
-            }
-            if (lastLinkageFailure != null) {
-                failure.addSuppressed(lastLinkageFailure);
-            }
+                    new IllegalStateException("Supertonic failed with providers xnnpack and cpu",
+                            lastFailure);
             throw failure;
         }
 
@@ -122,9 +115,13 @@ public final class SupertonicEngine implements AutoCloseable {
         }
         GenerationConfig config = createGenerationConfig(
                 activeSpeakerId, speed, language, steps);
-        GeneratedAudio generated = tts.generateWithConfig(text.trim(), config);
-        return TtsEngineUtils.toPcm16(generated,
-                Float.isFinite(pitch) && pitch > 0.0f ? pitch : 1.0f);
+        try {
+            GeneratedAudio generated = tts.generateWithConfig(text.trim(), config);
+            return TtsEngineUtils.toPcm16(generated,
+                    Float.isFinite(pitch) && pitch > 0.0f ? pitch : 1.0f);
+        } catch (Throwable failure) {
+            throw new IllegalStateException("Supertonic speech generation failed", failure);
+        }
     }
 
     public static GenerationConfig createGenerationConfig(

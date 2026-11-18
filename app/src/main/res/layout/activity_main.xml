@@ -21,9 +21,12 @@
         android:id="@+id/bottom_navigation"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:background="@color/sovra_surface"
-        app:itemIconTint="@color/sovra_accent"
-        app:itemTextColor="@color/sovra_text"
+        android:background="@color/sovra_background"
+        android:elevation="0dp"
+        app:itemActiveIndicatorStyle="@style/SovraNavigationIndicator"
+        app:itemIconTint="@color/nav_item_icon"
+        app:itemRippleColor="@android:color/transparent"
+        app:itemTextColor="@color/nav_item_text"
         app:labelVisibilityMode="labeled"
         app:menu="@menu/navigation" />
 </LinearLayout>

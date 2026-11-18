@@ -6,7 +6,6 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ArrayAdapter;
 import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -38,15 +37,14 @@ public final class SettingFragmentActivity extends Fragment {
         bindToggle(view, R.id.emotion_tags, "emotion_tags");
         bindToggle(view, R.id.multi_speaker_tags, "multi_speaker_tags");
         bindToggle(view, R.id.mms_models_enabled, "mms_models_enabled");
-        bindSlider(view, R.id.voice_pitch, R.id.pitch_label, "voice_pitch", 0.25f, 2.0f);
-        bindSlider(view, R.id.voice_speed, R.id.speed_label, "voice_speed", 0.25f, 2.0f);
-        bindSlider(view, R.id.silence_scale, R.id.silence_label, "silence_scale", 0.0f, 1.0f);
+        bindSlider(view, R.id.voice_pitch, R.id.pitch_value, "voice_pitch", 0.25f, 2.0f);
+        bindSlider(view, R.id.voice_speed, R.id.speed_value, "voice_speed", 0.25f, 2.0f);
+        bindSlider(view, R.id.silence_scale, R.id.silence_value, "silence_scale", 0.0f, 1.0f);
 
         Spinner style = view.findViewById(R.id.voice_style);
         List<String> styles = Arrays.asList(
                 "Natural", "Balanced", "Expressive");
-        style.setAdapter(new ArrayAdapter<>(requireContext(),
-                android.R.layout.simple_spinner_dropdown_item, styles));
+        style.setAdapter(new SovraSpinnerAdapter(requireContext(), styles));
         style.setSelection(Math.max(0, Math.min(2, preferences.getInt("voice_style", 0))));
         int[] previousStyle = {style.getSelectedItemPosition()};
         style.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
@@ -60,10 +58,10 @@ public final class SettingFragmentActivity extends Fragment {
                 float[] speed = {0.50f, 0.80f, 0.90f};
                 preferences.edit().putFloat("voice_pitch", pitch[position])
                         .putFloat("voice_speed", speed[position]).apply();
-                setSlider(view, R.id.voice_pitch, R.id.pitch_label, pitch[position],
-                        0.25f, 2.0f, "Pitch");
-                setSlider(view, R.id.voice_speed, R.id.speed_label, speed[position],
-                        0.25f, 2.0f, "Speed");
+                setSlider(view, R.id.voice_pitch, R.id.pitch_value,
+                        pitch[position], 0.25f, 2.0f);
+                setSlider(view, R.id.voice_speed, R.id.speed_value,
+                        speed[position], 0.25f, 2.0f);
             }
 
             @Override
@@ -74,6 +72,19 @@ public final class SettingFragmentActivity extends Fragment {
         refreshStorage(view.findViewById(R.id.storage_usage));
         view.findViewById(R.id.android_tts_settings).setOnClickListener(v -> openSystemTtsSettings());
         view.findViewById(R.id.repository_link).setOnClickListener(v -> openRepository());
+        view.findViewById(R.id.check_update).setOnClickListener(v ->
+                openUrl("https://github.com/builtby-deep/Sovra/releases"));
+        view.findViewById(R.id.privacy_policy).setOnClickListener(v ->
+                openUrl("https://github.com/builtby-deep/Sovra#privacy"));
+        view.findViewById(R.id.feedback).setOnClickListener(v -> sendFeedback());
+        TextView versionView = view.findViewById(R.id.app_version);
+        try {
+            String version = requireContext().getPackageManager()
+                    .getPackageInfo(requireContext().getPackageName(), 0).versionName;
+            versionView.setText("App Version  " + version);
+        } catch (android.content.pm.PackageManager.NameNotFoundException exception) {
+            versionView.setText("App Version unavailable");
+        }
         view.findViewById(R.id.factory_reset).setOnClickListener(v -> confirmFactoryReset(view));
     }
 
@@ -85,21 +96,16 @@ public final class SettingFragmentActivity extends Fragment {
     }
 
     private void bindSlider(
-            View root, int sliderId, int labelId, String key, float min, float max) {
+            View root, int sliderId, int valueId, String key, float min, float max) {
         float value = preferences.getFloat(key, key.equals("silence_scale") ? 0.5f : 1.0f);
-        setSlider(root, sliderId, labelId, value, min, max,
-                key.equals("voice_pitch") ? "Pitch"
-                        : key.equals("voice_speed") ? "Speed" : "Silence");
+        setSlider(root, sliderId, valueId, value, min, max);
         SeekBar seekBar = root.findViewById(sliderId);
-        TextView label = root.findViewById(labelId);
+        TextView valueView = root.findViewById(valueId);
         seekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar bar, int progress, boolean fromUser) {
                 float current = sliderValue(progress, min, max);
-                label.setText(String.format(Locale.ROOT, "%s: %.2f",
-                        key.equals("voice_pitch") ? "Pitch"
-                                : key.equals("voice_speed") ? "Speed" : "Silence",
-                        current));
+                valueView.setText(String.format(Locale.ROOT, "%.2f", current));
                 if (fromUser) preferences.edit().putFloat(key, current).apply();
             }
 
@@ -114,11 +120,11 @@ public final class SettingFragmentActivity extends Fragment {
     }
 
     private static void setSlider(
-            View root, int sliderId, int labelId, float value, float min, float max, String title) {
+            View root, int sliderId, int valueId, float value, float min, float max) {
         SeekBar slider = root.findViewById(sliderId);
         slider.setProgress(progressFor(value, min, max));
-        ((TextView) root.findViewById(labelId)).setText(String.format(
-                Locale.ROOT, "%s: %.2f", title, value));
+        ((TextView) root.findViewById(valueId)).setText(
+                String.format(Locale.ROOT, "%.2f", value));
     }
 
     private static float sliderValue(int progress, float min, float max) {
@@ -150,17 +156,37 @@ public final class SettingFragmentActivity extends Fragment {
     }
 
     private void openRepository() {
-        Intent intent = new Intent(Intent.ACTION_VIEW,
-                Uri.parse("https://github.com/builtby-deep/Sovra"));
-        startActivity(intent);
+        openUrl("https://github.com/builtby-deep/Sovra");
+    }
+
+    private void openUrl(String url) {
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(url));
+        try {
+            startActivity(intent);
+        } catch (android.content.ActivityNotFoundException exception) {
+            Toast.makeText(requireContext(), "No browser is available",
+                    Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void sendFeedback() {
+        Intent intent = new Intent(Intent.ACTION_SENDTO,
+                Uri.parse("mailto:"))
+                .putExtra(Intent.EXTRA_SUBJECT, "Sovra feedback");
+        try {
+            startActivity(intent);
+        } catch (android.content.ActivityNotFoundException exception) {
+            Toast.makeText(requireContext(), "No email app is available",
+                    Toast.LENGTH_SHORT).show();
+        }
     }
 
     private void confirmFactoryReset(View root) {
         new AlertDialog.Builder(requireContext())
-                .setTitle("Factory reset")
-                .setMessage("Remove downloaded models and local audio library data?")
+                .setTitle("Clear all cache?")
+                .setMessage("Remove downloaded models and local audio history? This also resets Sovra preferences.")
                 .setNegativeButton("Cancel", null)
-                .setPositiveButton("Reset", (dialog, which) -> {
+                .setPositiveButton("Clear cache", (dialog, which) -> {
                     for (String name : Arrays.asList("sp1", "sp2", "sp3", "sp5")) {
                         requireContext().getSharedPreferences(name, 0).edit().clear().apply();
                     }
@@ -180,8 +206,10 @@ public final class SettingFragmentActivity extends Fragment {
     }
 
     private void refreshStorage(TextView view) {
-        long bytes = sizeOf(requireContext().getFilesDir());
-        view.setText(String.format(Locale.ROOT, "App storage: %.1f MB",
+        File filesDirectory = requireContext().getFilesDir();
+        long bytes = sizeOf(new File(filesDirectory, "models"))
+                + sizeOf(new File(filesDirectory, "PiperModels"));
+        view.setText(String.format(Locale.ROOT, "ONNX Models Size: %.1f MB",
                 bytes / (1024.0 * 1024.0)));
     }
 

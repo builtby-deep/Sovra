@@ -47,7 +47,16 @@ public final class VoiceEngine implements AutoCloseable {
                 : language.trim().toLowerCase(java.util.Locale.ROOT).replace('_', '-');
         boolean chinese = primaryLanguage.equals("zh") || primaryLanguage.startsWith("zh-");
         boolean mms = normalizedType.equals("mms");
-        String dataDir = "";
+        File espeakRoot = new File(context.getFilesDir(), "espeak-ng-data");
+        TtsEngineUtils.extractAssetZip(context, "espeak-ng-data.zip", espeakRoot);
+        File espeakData = new File(espeakRoot, "espeak-ng-data");
+        if (!new File(espeakData, "phontab").isFile()) {
+            espeakData = espeakRoot;
+        }
+        if (!new File(espeakData, "phontab").isFile()) {
+            throw new IOException("VITS requires bundled espeak-ng data");
+        }
+        String dataDir = espeakData.getAbsolutePath();
         String lexicon = "";
         String dictDir = "";
         String smokeText;
@@ -73,14 +82,6 @@ public final class VoiceEngine implements AutoCloseable {
         } else if (mms) {
             smokeText = firstAlphabeticToken(tokensFile);
         } else {
-            File espeakRoot = new File(context.getFilesDir(), "espeak-ng-data");
-            TtsEngineUtils.extractAssetZip(context, "espeak-ng-data.zip", espeakRoot);
-            File espeakData = new File(espeakRoot, "espeak-ng-data");
-            dataDir = new File(espeakData, "phontab").isFile()
-                    ? espeakData.getAbsolutePath() : espeakRoot.getAbsolutePath();
-            if (!new File(dataDir, "phontab").isFile()) {
-                throw new IOException("Piper VITS requires bundled espeak-ng data");
-            }
             smokeText = "Hello";
         }
 
@@ -95,8 +96,7 @@ public final class VoiceEngine implements AutoCloseable {
         vits.setLexicon(lexicon);
         vits.setDictDir(dictDir);
 
-        RuntimeException lastRuntimeFailure = null;
-        LinkageError lastLinkageFailure = null;
+        Throwable lastFailure = null;
         OfflineTts selected = null;
         int selectedSampleRate = 0;
         for (String provider : PROVIDERS) {
@@ -119,27 +119,21 @@ public final class VoiceEngine implements AutoCloseable {
                 selected = candidate;
                 selectedSampleRate = smoke.getSampleRate();
                 break;
-            } catch (RuntimeException exception) {
-                lastRuntimeFailure = exception;
+            } catch (Throwable failure) {
+                lastFailure = failure;
                 if (candidate != null) {
-                    candidate.release();
-                }
-            } catch (LinkageError error) {
-                lastLinkageFailure = error;
-                if (candidate != null) {
-                    candidate.release();
+                    try {
+                        candidate.release();
+                    } catch (Throwable releaseFailure) {
+                        failure.addSuppressed(releaseFailure);
+                    }
                 }
             }
         }
         if (selected == null) {
             IllegalStateException failure =
-                    new IllegalStateException("VITS failed with providers xnnpack and cpu");
-            if (lastRuntimeFailure != null) {
-                failure.addSuppressed(lastRuntimeFailure);
-            }
-            if (lastLinkageFailure != null) {
-                failure.addSuppressed(lastLinkageFailure);
-            }
+                    new IllegalStateException("VITS failed with providers xnnpack and cpu",
+                            lastFailure);
             throw failure;
         }
 
@@ -161,8 +155,13 @@ public final class VoiceEngine implements AutoCloseable {
         }
         float safeSpeed = Float.isFinite(speed) && speed > 0.0f ? speed : 1.0f;
         float safePitch = Float.isFinite(pitch) && pitch > 0.0f ? pitch : 1.0f;
-        GeneratedAudio generated = tts.generate(text.trim(), Math.max(0, speakerId), safeSpeed);
-        return TtsEngineUtils.toPcm16(generated, safePitch);
+        try {
+            GeneratedAudio generated = tts.generate(
+                    text.trim(), Math.max(0, speakerId), safeSpeed);
+            return TtsEngineUtils.toPcm16(generated, safePitch);
+        } catch (Throwable failure) {
+            throw new IllegalStateException("VITS speech generation failed", failure);
+        }
     }
 
     public synchronized int getSampleRate() {

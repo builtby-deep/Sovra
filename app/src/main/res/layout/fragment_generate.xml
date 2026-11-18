@@ -1,161 +1,315 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fillViewport="true"
-    android:background="@color/sovra_background">
+    android:background="@color/sovra_background"
+    android:clipToPadding="false"
+    android:paddingBottom="96dp">
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="18dp">
+        android:padding="20dp">
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_wave" />
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:text="TTS Console"
+                android:textColor="@color/sovra_text"
+                android:textSize="24sp"
+                android:textStyle="bold" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/history_button"
+                style="@style/SovraIconButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:contentDescription="Open speech history"
+                app:backgroundTint="@color/sovra_surface"
+                app:icon="@drawable/ic_history"
+                app:iconTint="@color/sovra_text" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/reader_button"
+                style="@style/SovraIconButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="6dp"
+                android:contentDescription="Open document reader"
+                app:backgroundTint="@color/sovra_surface"
+                app:icon="@drawable/ic_reader"
+                app:iconTint="@color/sovra_text" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/export_button"
+                style="@style/SovraIconButton"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginStart="6dp"
+                android:contentDescription="Save generated WAV"
+                app:backgroundTint="@color/sovra_surface"
+                app:icon="@drawable/ic_save"
+                app:iconTint="@color/sovra_text" />
+        </LinearLayout>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="Create speech"
-            android:textColor="@color/sovra_text"
-            android:textSize="26sp"
+            android:layout_marginTop="28dp"
+            android:letterSpacing="0.08"
+            android:text="INPUT TEXT"
+            android:textColor="@color/sovra_accent"
+            android:textSize="12sp"
             android:textStyle="bold" />
-        <com.google.android.material.textfield.TextInputLayout
+
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:hint="Type or paste text">
+            android:layout_height="236dp"
+            android:layout_marginTop="10dp"
+            app:cardBackgroundColor="@color/sovra_surface"
+            app:cardCornerRadius="16dp"
+            app:strokeColor="@color/sovra_border"
+            app:strokeWidth="1dp">
+            <FrameLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent">
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/text_editor"
                 android:layout_width="match_parent"
-                android:layout_height="180dp"
+                android:layout_height="match_parent"
+                android:layout_gravity="top"
+                android:layout_marginBottom="58dp"
                 android:gravity="top|start"
+                android:hint="Write something to convert into audio..."
                 android:inputType="textMultiLine|textCapSentences"
                 android:maxLength="25000"
-                android:textColor="@color/sovra_text" />
-        </com.google.android.material.textfield.TextInputLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/import_button"
-                android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1"
-                android:text="Import document"
-                app:icon="@drawable/ic_import" />
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/mic_button"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:contentDescription="Speak text"
-                app:icon="@drawable/ic_mic" />
-        </LinearLayout>
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal">
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/paste_button"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:text="Paste" />
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/clear_button"
-                android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
-                android:text="Clear" />
-        </LinearLayout>
+                android:padding="16dp"
+                style="@style/SovraTextInput" />
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="bottom|end"
+                    android:layout_margin="10dp"
+                    android:orientation="horizontal">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/import_button"
+                        style="@style/SovraIconButton"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:contentDescription="Import document"
+                        app:backgroundTint="@color/sovra_border"
+                        app:icon="@drawable/ic_import"
+                        app:iconTint="@color/sovra_text" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/mic_button"
+                        style="@style/SovraIconButton"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="6dp"
+                        android:contentDescription="Speak text"
+                        app:backgroundTint="@color/sovra_border"
+                        app:icon="@drawable/ic_mic"
+                        app:iconTint="@color/sovra_text" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/paste_button"
+                        style="@style/SovraIconButton"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="6dp"
+                        android:contentDescription="Paste text"
+                        app:backgroundTint="@color/sovra_border"
+                        app:icon="@drawable/ic_paste"
+                        app:iconTint="@color/sovra_text" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/clear_button"
+                        style="@style/SovraIconButton"
+                        android:layout_width="44dp"
+                        android:layout_height="44dp"
+                        android:layout_marginStart="6dp"
+                        android:contentDescription="Clear text"
+                        app:backgroundTint="@color/sovra_border"
+                        app:icon="@drawable/ic_clear"
+                        app:iconTint="@color/sovra_text" />
+                </LinearLayout>
+            </FrameLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="10dp"
-            android:text="ACTIVE MODEL"
-            android:textColor="@color/sovra_muted"
+            android:layout_marginTop="24dp"
+            android:letterSpacing="0.08"
+            android:text="ONNX VOICE MODEL"
+            android:textColor="@color/sovra_accent"
+            android:textSize="12sp"
             android:textStyle="bold" />
-        <Spinner
-            android:id="@+id/model_selector"
-            android:layout_width="match_parent"
-            android:layout_height="48dp" />
-        <Spinner
-            android:id="@+id/kokoro_region_selector"
-            android:layout_width="match_parent"
-            android:layout_height="48dp" />
-        <Spinner
-            android:id="@+id/voice_selector"
-            android:layout_width="match_parent"
-            android:layout_height="48dp" />
         <LinearLayout
-            android:id="@+id/supertonic_options"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:visibility="gone">
-            <Spinner
-                android:id="@+id/supertonic_voice_selector"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="2" />
-            <Spinner
-                android:id="@+id/supertonic_steps_selector"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@color/sovra_surface"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/sovra_border"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="REGION / MODEL"
+                        android:textColor="@color/sovra_muted"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                    <Spinner
+                        android:id="@+id/model_selector"
+                        style="@style/SovraSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="42dp" />
+                    <Spinner
+                        android:id="@+id/kokoro_region_selector"
+                        style="@style/SovraSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="42dp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+            <com.google.android.material.card.MaterialCardView
                 android:layout_width="0dp"
-                android:layout_height="48dp"
-                android:layout_weight="1" />
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                app:cardBackgroundColor="@color/sovra_surface"
+                app:cardCornerRadius="14dp"
+                app:strokeColor="@color/sovra_border"
+                app:strokeWidth="1dp">
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="12dp">
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="VOICE"
+                        android:textColor="@color/sovra_muted"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
+                    <Spinner
+                        android:id="@+id/voice_selector"
+                        style="@style/SovraSpinner"
+                        android:layout_width="match_parent"
+                        android:layout_height="42dp" />
+                    <LinearLayout
+                        android:id="@+id/supertonic_options"
+                        android:layout_width="match_parent"
+                        android:layout_height="42dp"
+                        android:orientation="horizontal"
+                        android:visibility="gone">
+                        <Spinner
+                            android:id="@+id/supertonic_voice_selector"
+                            style="@style/SovraSpinner"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="2" />
+                        <Spinner
+                            android:id="@+id/supertonic_steps_selector"
+                            style="@style/SovraSpinner"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1" />
+                    </LinearLayout>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/generate_button"
+
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="12dp"
-            android:background="@drawable/bg_gradient_btn"
-            android:text="Generate &amp; Play"
-            android:textColor="#FFFFFF"
-            android:textStyle="bold"
-            app:backgroundTint="@null" />
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="44dp"
+            android:layout_height="wrap_content"
             android:layout_marginTop="18dp"
-            android:background="@drawable/bg_card"
-            android:gravity="center_vertical"
-            android:paddingHorizontal="14dp"
-            android:text="SYNTHESIS"
-            android:textColor="@color/sovra_accent"
-            android:textStyle="bold" />
+            app:cardBackgroundColor="@color/sovra_surface"
+            app:cardCornerRadius="14dp"
+            app:strokeColor="@color/sovra_border"
+            app:strokeWidth="1dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:orientation="horizontal"
+                android:paddingHorizontal="14dp"
+                android:paddingVertical="10dp">
+                <ImageView
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_wave" />
+                <TextView
+                    android:id="@+id/synthesis_status"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    android:text="READY TO SYNTHESIZE"
+                    android:textColor="@color/sovra_accent"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/play_button"
+                    style="@style/SovraIconButton"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:contentDescription="Play generated audio"
+                    android:visibility="gone"
+                    app:backgroundTint="@color/sovra_blue"
+                    app:icon="@drawable/ic_play"
+                    app:iconTint="@color/sovra_text" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
         <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/synthesis_progress"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
             android:visibility="gone" />
-        <com.google.android.material.card.MaterialCardView
+        <com.builtbydeep.sovra.WaveformView
+            android:id="@+id/waveform"
             android:layout_width="match_parent"
-            android:layout_height="150dp"
-            android:layout_marginTop="10dp"
-            app:cardBackgroundColor="@color/sovra_surface"
-            app:strokeColor="@color/sovra_border"
-            app:strokeWidth="1dp">
-            <com.builtbydeep.sovra.WaveformView
-                android:id="@+id/waveform"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:contentDescription="Audio waveform" />
-        </com.google.android.material.card.MaterialCardView>
-        <LinearLayout
+            android:layout_height="68dp"
+            android:layout_marginTop="8dp"
+            android:background="@drawable/bg_card"
+            android:contentDescription="Audio waveform"
+            android:padding="8dp"
+            android:visibility="gone" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/generate_button"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center"
-            android:orientation="horizontal">
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/play_button"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:text="Play"
-                app:icon="@drawable/ic_play" />
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/export_button"
-                android:layout_width="wrap_content"
-                android:layout_height="48dp"
-                android:text="Export WAV" />
-        </LinearLayout>
+            android:layout_height="56dp"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/bg_gradient_btn"
+            android:text="Generate &amp; Play"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            app:icon="@drawable/ic_play"
+            app:iconTint="@color/sovra_text"
+            app:backgroundTint="@null" />
     </LinearLayout>
-</ScrollView>
+</androidx.core.widget.NestedScrollView>

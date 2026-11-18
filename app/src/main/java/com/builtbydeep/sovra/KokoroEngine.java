@@ -50,8 +50,7 @@ public final class KokoroEngine implements AutoCloseable {
         TtsEngineUtils.ensureNativeLibraryLoaded();
         int speakerId = activeSpeakerId >= 0 && activeSpeakerId < KokoroVoiceHelper.getVoices().size()
                 ? activeSpeakerId : KokoroVoiceHelper.DEFAULT_SPEAKER_ID;
-        RuntimeException lastRuntimeFailure = null;
-        LinkageError lastLinkageFailure = null;
+        Throwable lastFailure = null;
         OfflineTts selected = null;
         int selectedSampleRate = 0;
 
@@ -80,27 +79,21 @@ public final class KokoroEngine implements AutoCloseable {
                 selected = candidate;
                 selectedSampleRate = smoke.getSampleRate();
                 break;
-            } catch (RuntimeException exception) {
-                lastRuntimeFailure = exception;
+            } catch (Throwable failure) {
+                lastFailure = failure;
                 if (candidate != null) {
-                    candidate.release();
-                }
-            } catch (LinkageError error) {
-                lastLinkageFailure = error;
-                if (candidate != null) {
-                    candidate.release();
+                    try {
+                        candidate.release();
+                    } catch (Throwable releaseFailure) {
+                        failure.addSuppressed(releaseFailure);
+                    }
                 }
             }
         }
         if (selected == null) {
             IllegalStateException failure =
-                    new IllegalStateException("Kokoro failed with providers xnnpack and cpu");
-            if (lastRuntimeFailure != null) {
-                failure.addSuppressed(lastRuntimeFailure);
-            }
-            if (lastLinkageFailure != null) {
-                failure.addSuppressed(lastLinkageFailure);
-            }
+                    new IllegalStateException("Kokoro failed with providers xnnpack and cpu",
+                            lastFailure);
             throw failure;
         }
 
@@ -122,12 +115,16 @@ public final class KokoroEngine implements AutoCloseable {
         }
         float safeSpeed = Float.isFinite(speed) && speed > 0.0f ? speed : 1.0f;
         float safePitch = Float.isFinite(pitch) && pitch > 0.0f ? pitch : 1.0f;
-        GeneratedAudio generated = tts.generate(text.trim(),
-                speakerId >= 0 ? speakerId : defaultSpeakerId, safeSpeed);
-        if (generated.getSampleRate() != KOKORO_SAMPLE_RATE) {
-            throw new IllegalStateException("Kokoro output must be exactly 24000 Hz");
+        try {
+            GeneratedAudio generated = tts.generate(text.trim(),
+                    speakerId >= 0 ? speakerId : defaultSpeakerId, safeSpeed);
+            if (generated.getSampleRate() != KOKORO_SAMPLE_RATE) {
+                throw new IllegalStateException("Kokoro output must be exactly 24000 Hz");
+            }
+            return TtsEngineUtils.toPcm16(generated, safePitch);
+        } catch (Throwable failure) {
+            throw new IllegalStateException("Kokoro speech generation failed", failure);
         }
-        return TtsEngineUtils.toPcm16(generated, safePitch);
     }
 
     public synchronized int getSampleRate() {

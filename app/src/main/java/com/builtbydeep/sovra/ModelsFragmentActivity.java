@@ -3,12 +3,14 @@ package com.builtbydeep.sovra;
 import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
+import android.content.res.ColorStateList;
 import android.database.Cursor;
 import android.media.AudioTrack;
 import android.net.Uri;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.StatFs;
 import android.provider.OpenableColumns;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -21,12 +23,10 @@ import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.fragment.app.Fragment;
-import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.chip.Chip;
-import com.google.android.material.chip.ChipGroup;
 import com.google.gson.Gson;
 
 import com.google.firebase.FirebaseApp;
@@ -37,6 +37,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
@@ -57,11 +58,11 @@ public final class ModelsFragmentActivity extends Fragment {
     private final Map<String, String> progressLabels = new ConcurrentHashMap<>();
     private RecyclerView recyclerView;
     private ModelAdapter adapter;
-    private TextView statusView;
-    private ChipGroup languageChips;
+    private TextView storageView;
+    private TextView modelCountView;
+    private ProgressBar storageProgress;
+    private android.widget.Spinner filterSpinner;
     private String selectedFilter = "all";
-    private String languageQuery = "";
-    private String selectedLanguageChip = "";
     private Uri selectedModelUri;
     private String selectedModelName;
     private AudioTrack previewTrack;
@@ -82,9 +83,11 @@ public final class ModelsFragmentActivity extends Fragment {
     public void onViewCreated(View view, Bundle state) {
         initializeOptionalFirebase();
         recyclerView = view.findViewById(R.id.model_list);
-        statusView = view.findViewById(R.id.catalog_status);
-        languageChips = view.findViewById(R.id.language_chips);
-        recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
+        storageView = view.findViewById(R.id.storage_usage);
+        modelCountView = view.findViewById(R.id.model_count);
+        storageProgress = view.findViewById(R.id.storage_progress);
+        filterSpinner = view.findViewById(R.id.model_filter);
+        recyclerView.setLayoutManager(new GridLayoutManager(requireContext(), 2));
         adapter = new ModelAdapter();
         recyclerView.setAdapter(adapter);
         android.content.SharedPreferences preferences =
@@ -94,44 +97,25 @@ public final class ModelsFragmentActivity extends Fragment {
                 : persistedFilter.equals("installed") ? "installed"
                 : persistedFilter.equals("newest") ? "newest"
                 : persistedFilter.equals("oldest") ? "oldest" : "all";
-        ChipGroup filters = view.findViewById(R.id.model_filters);
-        filters.setOnCheckedStateChangeListener(
-                (group, checkedIds) -> {
-                    if (checkedIds.isEmpty()) return;
-                    int id = checkedIds.get(0);
-                    selectedFilter = id == R.id.filter_downloaded ? "downloaded"
-                            : id == R.id.filter_installed ? "installed"
-                            : id == R.id.filter_newest ? "newest"
-                            : id == R.id.filter_oldest ? "oldest" : "all";
+        filterSpinner.setAdapter(new SovraSpinnerAdapter(requireContext(),
+                Arrays.asList("All Models", "Downloaded", "Installed", "Newest", "Oldest")));
+        filterSpinner.setSelection(filterPosition(selectedFilter));
+        filterSpinner.setOnItemSelectedListener(new android.widget.AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(android.widget.AdapterView<?> parent, View selectedView,
+                                       int position, long id) {
+                String[] filters = {"all", "downloaded", "installed", "newest", "oldest"};
+                String selected = filters[position];
+                if (!selected.equals(selectedFilter)) {
+                    selectedFilter = selected;
                     renderCatalog();
-                });
-        android.widget.EditText language = view.findViewById(R.id.language_filter);
-        String savedLanguage = preferences.getString("language_filter", "");
-        languageQuery = savedLanguage.toLowerCase(Locale.ROOT);
-        selectedLanguageChip = preferences.getString("language_filter_chip", "");
-        if (!savedLanguage.isEmpty()) language.setText(savedLanguage);
-        language.addTextChangedListener(new android.text.TextWatcher() {
-            @Override
-            public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+                }
             }
 
             @Override
-            public void onTextChanged(CharSequence s, int start, int before, int count) {
-                languageQuery = s.toString().trim().toLowerCase(Locale.ROOT);
-                requireContext().getSharedPreferences("sp1", 0).edit()
-                        .putString("language_filter", languageQuery).apply();
-                renderCatalog();
-            }
-
-            @Override
-            public void afterTextChanged(android.text.Editable s) {
+            public void onNothingSelected(android.widget.AdapterView<?> parent) {
             }
         });
-        int selectedFilterId = selectedFilter.equals("downloaded") ? R.id.filter_downloaded
-                : selectedFilter.equals("installed") ? R.id.filter_installed
-                : selectedFilter.equals("newest") ? R.id.filter_newest
-                : selectedFilter.equals("oldest") ? R.id.filter_oldest : R.id.filter_all;
-        filters.check(selectedFilterId);
         view.findViewById(R.id.import_model_button).setOnClickListener(v ->
                 modelPicker.launch(new String[]{"application/octet-stream", "*/*"}));
         loadCatalog();
@@ -166,13 +150,11 @@ public final class ModelsFragmentActivity extends Fragment {
         catalog.clear();
         try {
             catalog.addAll(SovraModels.load(requireContext()));
-            statusView.setText("Built-in Kokoro, Supertonic, Piper and MMS catalogs");
         } catch (IOException | RuntimeException exception) {
             for (VoiceModelCatalog.Model model : VoiceModelCatalog.getBuiltInModels()) {
                 catalog.add(new SovraModels.Item(
                         model.id, model.name, model.type, model.language, model.size, null));
             }
-            statusView.setText("Using offline catalogs. MMS catalog unavailable.");
         }
         File customRoot = new File(requireContext().getFilesDir(), "PiperModels");
         File[] custom = customRoot.listFiles();
@@ -184,7 +166,6 @@ public final class ModelsFragmentActivity extends Fragment {
                 }
             }
         }
-        populateLanguageChips();
         requireContext().getSharedPreferences("sp1", 0).edit()
                 .putString("models_data", gson.toJson(catalog)).apply();
         renderCatalog();
@@ -199,10 +180,6 @@ public final class ModelsFragmentActivity extends Fragment {
                 continue;
             }
             if (selectedFilter.equals("installed") && !installed) continue;
-            if (!languageQuery.isEmpty()
-                    && !item.language.toLowerCase(Locale.ROOT).contains(languageQuery)
-                    && !item.name.toLowerCase(Locale.ROOT).contains(languageQuery)) continue;
-            if (!matchesLanguageChip(item)) continue;
             visible.add(item);
         }
         if (selectedFilter.equals("newest")) Collections.reverse(visible);
@@ -210,81 +187,54 @@ public final class ModelsFragmentActivity extends Fragment {
             visible.sort(Comparator.comparing(item -> item.name.toLowerCase(Locale.ROOT)));
         }
         adapter.submit(visible);
+        modelCountView.setText(String.format(Locale.ROOT, "MODELS LIST (%d)", visible.size()));
+        refreshStorage();
         String storedFilter = selectedFilter.equals("downloaded") ? "download"
                 : selectedFilter.equals("all") ? "all_models" : selectedFilter;
         requireContext().getSharedPreferences("sp1", 0).edit()
                 .putString("sort_preference", storedFilter).apply();
     }
 
-    private void populateLanguageChips() {
-        languageChips.removeAllViews();
-        addLanguageChip("All languages", "");
-        for (String language : new String[]{"English", "English UK", "Hindi", "Spanish",
-                "French", "Italian", "Japanese", "Portuguese", "Chinese",
-                "Multi-language", "MMS"}) {
-            addLanguageChip(language, language);
+    private static int filterPosition(String filter) {
+        switch (filter) {
+            case "downloaded": return 1;
+            case "installed": return 2;
+            case "newest": return 3;
+            case "oldest": return 4;
+            default: return 0;
         }
-        int selectedId = languageChips.getChildAt(0).getId();
-        for (int i = 0; i < languageChips.getChildCount(); i++) {
-            Chip chip = (Chip) languageChips.getChildAt(i);
-            if (selectedLanguageChip.equals(String.valueOf(chip.getTag()))) {
-                selectedId = chip.getId();
-                break;
-            }
-        }
-        languageChips.check(selectedId);
-        languageChips.setOnCheckedStateChangeListener((group, checkedIds) -> {
-            if (checkedIds.isEmpty()) return;
-            View selected = group.findViewById(checkedIds.get(0));
-            Object tag = selected == null ? null : selected.getTag();
-            selectedLanguageChip = tag == null ? "" : tag.toString();
-            requireContext().getSharedPreferences("sp1", 0).edit()
-                    .putString("language_filter_chip", selectedLanguageChip).apply();
-            renderCatalog();
-        });
     }
 
-    private void addLanguageChip(String label, String filter) {
-        Chip chip = new Chip(requireContext());
-        chip.setId(View.generateViewId());
-        chip.setText(label);
-        chip.setCheckable(true);
-        chip.setTag(filter);
-        languageChips.addView(chip);
+    private void refreshStorage() {
+        File filesDirectory = requireContext().getFilesDir();
+        long used = sizeOf(new File(filesDirectory, "models"))
+                + sizeOf(new File(filesDirectory, "PiperModels"));
+        long total = new StatFs(filesDirectory.getAbsolutePath()).getTotalBytes();
+        storageView.setText(String.format(Locale.ROOT, "%s used · %s total",
+                formatBytes(used), formatBytes(total)));
+        storageProgress.setProgress(total <= 0 ? 0
+                : (int) Math.min(100, used * 100L / total));
     }
 
-    private boolean matchesLanguageChip(SovraModels.Item item) {
-        if (selectedLanguageChip.isEmpty()) return true;
-        if (selectedLanguageChip.equals("MMS")) return item.type.equals("mms");
-        String languageCode;
-        switch (selectedLanguageChip) {
-            case "English": languageCode = "en"; break;
-            case "English UK": languageCode = "en-GB"; break;
-            case "Hindi": languageCode = "hi"; break;
-            case "Spanish": languageCode = "es"; break;
-            case "French": languageCode = "fr"; break;
-            case "Italian": languageCode = "it"; break;
-            case "Japanese": languageCode = "ja"; break;
-            case "Portuguese": languageCode = "pt"; break;
-            case "Chinese": languageCode = "zh"; break;
-            default: languageCode = "";
+    private static String formatBytes(long bytes) {
+        if (bytes >= 1024L * 1024L * 1024L) {
+            return String.format(Locale.ROOT, "%.1f GB", bytes / (1024.0 * 1024.0 * 1024.0));
         }
-        if (item.type.equals("kokoro") && !languageCode.isEmpty()) {
-            for (KokoroVoiceHelper.Voice voice : KokoroVoiceHelper.getVoices()) {
-                if (languageCode.contains("-")
-                        ? voice.language.equalsIgnoreCase(languageCode)
-                        : voice.language.toLowerCase(Locale.ROOT).startsWith(languageCode)) {
-                    return true;
-                }
-            }
+        if (bytes >= 1024L * 1024L) {
+            return String.format(Locale.ROOT, "%.1f MB", bytes / (1024.0 * 1024.0));
         }
-        if (item.type.equals("supertonic") && !languageCode.isEmpty()) {
-            return SupertonicEngine.normalizeLanguage(languageCode)
-                    .equals(languageCode.contains("-")
-                            ? languageCode.substring(0, languageCode.indexOf('-')) : languageCode);
+        return String.format(Locale.ROOT, "%.0f KB", bytes / 1024.0);
+    }
+
+    private static long sizeOf(File file) {
+        if (!file.exists()) return 0;
+        if (file.isFile()) return file.length();
+        long bytes = 0;
+        File[] children = file.listFiles();
+        if (children != null) {
+            for (File child : children) bytes += sizeOf(child);
         }
-        return item.language.toLowerCase(Locale.ROOT)
-                .contains(selectedLanguageChip.toLowerCase(Locale.ROOT));
+        return bytes;
     }
 
     private void download(SovraModels.Item item) {
@@ -575,27 +525,36 @@ public final class ModelsFragmentActivity extends Fragment {
             SovraModels.Item item = visible.get(position);
             boolean installed = SovraModels.isInstalled(requireContext(), item);
             boolean running = downloads.containsKey(item.id);
+            boolean downloaded = SovraModels.isDownloaded(requireContext(), item);
+            boolean active = item.name.equals(requireContext()
+                    .getSharedPreferences("sp1", 0).getString("active_model_name", ""));
             holder.title.setText(item.name);
-            holder.details.setText(item.type.toUpperCase(Locale.ROOT) + " · "
-                    + item.language + (item.size.isEmpty() ? "" : " · " + item.size));
+            int speakerCount = item.type.equals("supertonic") ? 10
+                    : item.type.equals("kokoro") ? KokoroVoiceHelper.getVoices().size() : 1;
+            holder.details.setText((item.language.isEmpty() ? "Multi-language" : item.language)
+                    + "\n" + speakerCount + " " + (speakerCount == 1 ? "speaker" : "speakers")
+                    + " · " + (item.size.isEmpty() ? "Size varies" : item.size));
             holder.status.setText(running
                     ? progressLabels.getOrDefault(item.id, "Downloading")
-                    : installed ? "Installed"
-                    : SovraModels.isDownloaded(requireContext(), item)
-                    ? "Downloaded, incomplete" : "Not installed");
+                    : active ? "Active voice"
+                    : installed ? "Ready to use"
+                    : downloaded ? "Downloaded · incomplete" : "Ready to download");
             holder.progress.setVisibility(running ? View.VISIBLE : View.GONE);
             holder.progress.setIndeterminate(running && !progressPercent.containsKey(item.id));
             if (running) holder.progress.setProgress(progressPercent.getOrDefault(item.id, 0));
-            holder.primary.setText(running ? "Cancel" : installed ? "Activate" : "Download");
-            holder.preview.setVisibility(installed ? View.VISIBLE : View.GONE);
-            holder.delete.setVisibility(SovraModels.isDownloaded(requireContext(), item)
-                    ? View.VISIBLE : View.GONE);
+            holder.active.setVisibility(active ? View.VISIBLE : View.GONE);
+            holder.primary.setText(running ? "Cancel"
+                    : active ? "Remove" : installed ? "Use Voice" : "Download");
+            holder.primary.setBackgroundTintList(ColorStateList.valueOf(requireContext().getColor(
+                    active ? R.color.sovra_red : R.color.sovra_blue)));
+            holder.delete.setVisibility(downloaded ? View.VISIBLE : View.GONE);
+            holder.delete.setEnabled(!running);
             holder.primary.setOnClickListener(v -> {
                 if (running) download(item);
+                else if (active) delete(item);
                 else if (installed) activate(item);
                 else download(item);
             });
-            holder.preview.setOnClickListener(v -> preview(item));
             holder.delete.setOnClickListener(v -> delete(item));
         }
 
@@ -609,9 +568,9 @@ public final class ModelsFragmentActivity extends Fragment {
         final TextView title;
         final TextView details;
         final TextView status;
+        final TextView active;
         final ProgressBar progress;
         final MaterialButton primary;
-        final MaterialButton preview;
         final MaterialButton delete;
 
         ModelHolder(View itemView) {
@@ -619,9 +578,9 @@ public final class ModelsFragmentActivity extends Fragment {
             title = itemView.findViewById(R.id.model_title);
             details = itemView.findViewById(R.id.model_details);
             status = itemView.findViewById(R.id.model_status);
+            active = itemView.findViewById(R.id.model_active);
             progress = itemView.findViewById(R.id.model_progress);
             primary = itemView.findViewById(R.id.model_primary_action);
-            preview = itemView.findViewById(R.id.model_preview_action);
             delete = itemView.findViewById(R.id.model_delete_action);
         }
     }

@@ -1,18 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Sovra" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Sovra" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/sovra_accent</item>
         <item name="colorPrimaryVariant">@color/sovra_accent</item>
         <item name="colorOnPrimary">#FFFFFF</item>
         <item name="colorSecondary">@color/sovra_playhead</item>
         <item name="colorOnSecondary">#FFFFFF</item>
+        <item name="colorSurface">@color/sovra_surface</item>
+        <item name="colorSurfaceVariant">@color/sovra_border</item>
+        <item name="android:colorBackground">@color/sovra_background</item>
+        <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorOnBackground">#FFFFFF</item>
+        <item name="materialButtonStyle">@style/SovraMaterialButton</item>
         <item name="android:colorAccent">@color/sovra_accent</item>
         <item name="android:windowBackground">@color/sovra_background</item>
         <item name="android:statusBarColor">@color/sovra_background</item>
         <item name="android:navigationBarColor">@color/sovra_background</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
         <item name="android:fontFamily">sans</item>
-        <item name="android:textColorPrimary">@color/sovra_text</item>
-        <item name="android:textColorSecondary">@color/sovra_muted</item>
+        <item name="android:textColorPrimary">#FFFFFF</item>
+        <item name="android:textColorSecondary">#9CA3AF</item>
+    </style>
+
+    <style name="SovraNavigationIndicator" parent="Widget.Material3.BottomNavigationView.ActiveIndicator">
+        <item name="android:color">@color/sovra_accent</item>
     </style>
 </resources>

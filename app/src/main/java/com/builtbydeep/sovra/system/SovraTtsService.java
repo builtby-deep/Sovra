@@ -183,8 +183,8 @@ public final class SovraTtsService extends TextToSpeechService {
                 sampleRate = getLoadedSampleRate();
             }
             streamPcm(pcm, sampleRate, callback);
-        } catch (IOException | RuntimeException | LinkageError exception) {
-            Log.e(TAG, "Speech synthesis failed", exception);
+        } catch (Throwable failure) {
+            Log.e(TAG, "Speech synthesis failed", failure);
             callback.error();
         }
     }
