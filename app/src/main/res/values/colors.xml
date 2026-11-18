@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sovra_background">#0F111A</color>
+    <color name="sovra_surface">#1A1D2E</color>
+    <color name="sovra_border">#2A2F45</color>
+    <color name="sovra_accent">#4A9EFF</color>
+    <color name="sovra_playhead">#9D4EDD</color>
+    <color name="sovra_text">#F5F6FA</color>
+    <color name="sovra_muted">#A5A9B8</color>
+</resources>

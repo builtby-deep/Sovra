@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="@color/sovra_background">
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="18dp">
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Create speech"
+            android:textColor="@color/sovra_text"
+            android:textSize="26sp"
+            android:textStyle="bold" />
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:hint="Type or paste text">
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/text_editor"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:gravity="top|start"
+                android:inputType="textMultiLine|textCapSentences"
+                android:maxLength="25000"
+                android:textColor="@color/sovra_text" />
+        </com.google.android.material.textfield.TextInputLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/import_button"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Import document"
+                app:icon="@drawable/ic_import" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/mic_button"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:contentDescription="Speak text"
+                app:icon="@drawable/ic_mic" />
+        </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/paste_button"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="Paste" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/clear_button"
+                android:layout_width="0dp"
+                android:layout_height="44dp"
+                android:layout_weight="1"
+                android:text="Clear" />
+        </LinearLayout>
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="ACTIVE MODEL"
+            android:textColor="@color/sovra_muted"
+            android:textStyle="bold" />
+        <Spinner
+            android:id="@+id/model_selector"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+        <Spinner
+            android:id="@+id/kokoro_region_selector"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+        <Spinner
+            android:id="@+id/voice_selector"
+            android:layout_width="match_parent"
+            android:layout_height="48dp" />
+        <LinearLayout
+            android:id="@+id/supertonic_options"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:visibility="gone">
+            <Spinner
+                android:id="@+id/supertonic_voice_selector"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="2" />
+            <Spinner
+                android:id="@+id/supertonic_steps_selector"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1" />
+        </LinearLayout>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/generate_button"
+            android:layout_width="match_parent"
+            android:layout_height="50dp"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_gradient_btn"
+            android:text="Generate &amp; Play"
+            android:textColor="#FFFFFF"
+            android:textStyle="bold"
+            app:backgroundTint="@null" />
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="44dp"
+            android:layout_marginTop="18dp"
+            android:background="@drawable/bg_card"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="14dp"
+            android:text="SYNTHESIS"
+            android:textColor="@color/sovra_accent"
+            android:textStyle="bold" />
+        <com.google.android.material.progressindicator.LinearProgressIndicator
+            android:id="@+id/synthesis_progress"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="150dp"
+            android:layout_marginTop="10dp"
+            app:cardBackgroundColor="@color/sovra_surface"
+            app:strokeColor="@color/sovra_border"
+            app:strokeWidth="1dp">
+            <com.builtbydeep.sovra.WaveformView
+                android:id="@+id/waveform"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="Audio waveform" />
+        </com.google.android.material.card.MaterialCardView>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/play_button"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="Play"
+                app:icon="@drawable/ic_play" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/export_button"
+                android:layout_width="wrap_content"
+                android:layout_height="48dp"
+                android:text="Export WAV" />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

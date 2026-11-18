@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/sovra_background">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Voice models"
+        android:textColor="@color/sovra_text"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/model_filters"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            app:selectionRequired="true">
+            <com.google.android.material.chip.Chip android:id="@+id/filter_all" android:layout_width="wrap_content" android:layout_height="wrap_content" android:checked="true" android:text="All" />
+            <com.google.android.material.chip.Chip android:id="@+id/filter_downloaded" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Downloaded" />
+            <com.google.android.material.chip.Chip android:id="@+id/filter_installed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Installed" />
+            <com.google.android.material.chip.Chip android:id="@+id/filter_newest" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Newest" />
+            <com.google.android.material.chip.Chip android:id="@+id/filter_oldest" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Oldest" />
+        </com.google.android.material.chip.ChipGroup>
+    </HorizontalScrollView>
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Filter by language">
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/language_filter"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:inputType="textCapWords"
+            android:singleLine="true" />
+    </com.google.android.material.textfield.TextInputLayout>
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none">
+        <com.google.android.material.chip.ChipGroup
+            android:id="@+id/language_chips"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            app:singleSelection="true"
+            app:selectionRequired="true" />
+    </HorizontalScrollView>
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/import_model_button"
+        android:layout_width="match_parent"
+        android:layout_height="46dp"
+        android:text="Import custom .onnx + .txt" />
+    <TextView
+        android:id="@+id/catalog_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:textColor="@color/sovra_muted" />
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/model_list"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:clipToPadding="false"
+        android:paddingBottom="8dp" />
+</LinearLayout>
