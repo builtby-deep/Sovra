@@ -1,15 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.Sovra" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">@color/sovra_accent</item>
-        <item name="colorPrimaryVariant">@color/sovra_accent</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">@color/sovra_playhead</item>
+        <item name="colorPrimary">#38BDF8</item>
+        <item name="colorOnPrimary">#0E1117</item>
+        <item name="colorPrimaryContainer">#075985</item>
+        <item name="colorOnPrimaryContainer">#E0F2FE</item>
+        <item name="colorPrimaryVariant">#38BDF8</item>
+        <item name="colorSecondary">#8B5CF6</item>
         <item name="colorOnSecondary">#FFFFFF</item>
-        <item name="colorSurface">@color/sovra_surface</item>
-        <item name="colorSurfaceVariant">@color/sovra_border</item>
-        <item name="android:colorBackground">@color/sovra_background</item>
+        <item name="colorSecondaryContainer">#4C1D95</item>
+        <item name="colorOnSecondaryContainer">#EDE9FE</item>
+        <item name="colorSurface">#181C26</item>
         <item name="colorOnSurface">#FFFFFF</item>
+        <item name="colorSurfaceVariant">#262B38</item>
+        <item name="colorOnSurfaceVariant">#D1D5DB</item>
+        <item name="colorOutline">#6B7280</item>
+        <item name="android:colorBackground">#0E1117</item>
         <item name="colorOnBackground">#FFFFFF</item>
         <item name="materialButtonStyle">@style/SovraMaterialButton</item>
         <item name="android:colorAccent">@color/sovra_accent</item>
