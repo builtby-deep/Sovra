@@ -21,7 +21,7 @@ public final class KokoroModelFiles {
     public static final String DISPLAY_NAME = "Kokoro";
     public static final String DISPLAY_SIZE = "350 MB";
     public static final String BASE_URL =
-            "https://huggingface.co/seepa22/Kokoro-82M/resolve/main/kokoro-multi-lang/";
+            "https://huggingface.co/builtby-deep/Kokoro-82M/resolve/main/kokoro-multi-lang/";
     public static final List<String> MODEL_FILES = Collections.unmodifiableList(Arrays.asList(
             MODEL_FILE_NAME, "tokens.txt", "voices.bin"));
     private static final long EXPECTED_DOWNLOAD_BYTES = 350L * 1024 * 1024;

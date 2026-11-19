@@ -18,7 +18,7 @@ public final class SupertonicModelFiles {
     public static final String MODEL_TYPE = "supertonic";
     public static final String DISPLAY_SIZE = "400 MB";
     public static final String BASE_URL =
-            "https://huggingface.co/seepa22/Supertonic-voxsherpa/resolve/main/supertonic-v3/";
+            "https://huggingface.co/builtby-deep/Supertonic-V3/resolve/main/supertonic-v3/";
     public static final List<String> MODEL_FILES = Collections.unmodifiableList(Arrays.asList(
             "vector_estimator.onnx",
             "vocoder.onnx",
