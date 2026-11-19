@@ -30,6 +30,8 @@ public final class PiperModelCatalog {
 
     public interface ProgressListener {
         void onProgress(int percent);
+
+        default void onExtractionStarted() {}
     }
 
     public static List<HashMap<String, Object>> createCatalogEntries() {
@@ -186,8 +188,9 @@ public final class PiperModelCatalog {
                         ensureNotCancelled();
                         output.write(buffer, 0, count);
                         bytesRead += count;
-                        if (listener != null && contentLength > 0) {
-                            listener.onProgress((int) Math.min(90, bytesRead * 90 / contentLength));
+                        if (listener != null) {
+                            listener.onProgress(Math.min(99,
+                                    calculateDownloadProgress(bytesRead, contentLength)));
                         }
                     }
                 }
@@ -201,6 +204,7 @@ public final class PiperModelCatalog {
                 if (!partial.renameTo(archive)) {
                     throw new IOException("Unable to save the Piper archive.");
                 }
+                if (listener != null) listener.onProgress(100);
             } finally {
                 activeConnection = null;
                 connection.disconnect();
@@ -209,9 +213,8 @@ public final class PiperModelCatalog {
 
             try {
                 ensureNotCancelled();
-                if (listener != null) listener.onProgress(92);
+                if (listener != null) listener.onExtractionStarted();
                 extractArchive(archive, modelDir, this);
-                if (listener != null) listener.onProgress(100);
                 return modelDir;
             } catch (IOException error) {
                 if (archive.exists()) archive.delete();
@@ -228,6 +231,12 @@ public final class PiperModelCatalog {
 
     public static DownloadTask newDownloadTask() {
         return new DownloadTask();
+    }
+
+    static int calculateDownloadProgress(long bytesRead, long contentLength) {
+        if (bytesRead <= 0) return 0;
+        if (contentLength <= 0) return 1;
+        return (int) Math.max(1, Math.min(100, bytesRead * 100 / contentLength));
     }
 
     static void extractArchive(File archive, File modelDir, DownloadTask task)

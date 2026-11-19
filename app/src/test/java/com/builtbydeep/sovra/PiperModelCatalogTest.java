@@ -113,6 +113,15 @@ public class PiperModelCatalogTest {
     }
 
     @Test
+    public void archiveDownloadProgressUsesTheFullPercentageRange() {
+        assertEquals(0, PiperModelCatalog.calculateDownloadProgress(0, 1000));
+        assertEquals(1, PiperModelCatalog.calculateDownloadProgress(1, 1000));
+        assertEquals(50, PiperModelCatalog.calculateDownloadProgress(500, 1000));
+        assertEquals(100, PiperModelCatalog.calculateDownloadProgress(1000, 1000));
+        assertEquals(1, PiperModelCatalog.calculateDownloadProgress(1, -1));
+    }
+
+    @Test
     public void installedFilesMapToThePiperEngineInputs() throws Exception {
         File modelDir = temporaryFolder.newFolder("piper-model");
         for (String name : new String[] {"model.onnx", "tokens.txt"}) {

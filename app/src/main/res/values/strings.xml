@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name" translatable="false">Exlab</string>
+    <string name="app_name" translatable="false">Sovra</string>
 
     <string-array name="language_list">
         <item>English</item>

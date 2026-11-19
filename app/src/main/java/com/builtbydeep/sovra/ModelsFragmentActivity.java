@@ -297,7 +297,10 @@ public class ModelsFragmentActivity extends Fragment {
 							android.widget.ProgressBar progressBar = holder.itemView.findViewById(R.id.progress_download);
 							android.widget.TextView txtModelSub = holder.itemView.findViewById(R.id.txt_model_sub);
 							int progress = item.containsKey("download_progress") ? Integer.parseInt(item.get("download_progress").toString()) : 0;
-							progressBar.setIndeterminate(false); progressBar.setProgress(progress); txtModelSub.setText(progress + "%");
+							boolean isExtracting = "extracting".equals(String.valueOf(item.get("download_status")));
+							progressBar.setIndeterminate(isExtracting);
+							if (isExtracting) txtModelSub.setText("");
+							else { progressBar.setProgress(progress); txtModelSub.setText(progress + "%"); }
 						}
 					}
 				}
@@ -329,6 +332,7 @@ public class ModelsFragmentActivity extends Fragment {
 				
 				boolean isDownloaded = isSupertonic ? com.builtbydeep.sovra.SupertonicModelFiles.isInstalled(new java.io.File(currentModelDir)) : isKokoro ? com.builtbydeep.sovra.KokoroModelFiles.isInstalled(new java.io.File(currentModelDir)) : isPiperArchive ? com.builtbydeep.sovra.PiperModelCatalog.isInstalled(new java.io.File(currentModelDir)) : !currentOnnx.isEmpty();
 				boolean isDownloading = item.containsKey("is_downloading") && item.get("is_downloading").toString().equals("true");
+				boolean isExtracting = isDownloading && "extracting".equals(String.valueOf(item.get("download_status")));
 				int progress = item.containsKey("download_progress") ? Integer.parseInt(item.get("download_progress").toString()) : 0;
 				
 				String activeOnnx = sp1.getString("active_model", ""); String activeModelType = sp1.getString("active_model_type", ""); String activeSupertonicDir = sp1.getString("active_supertonic_dir", "");
@@ -352,7 +356,9 @@ public class ModelsFragmentActivity extends Fragment {
 					else { selectIv.setVisibility(android.view.View.GONE); useRemoveTv.setText("Use Voice"); btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor("#1D61FF")); }
 				} else if (isDownloading) {
 					progressBar.setVisibility(android.view.View.VISIBLE); btnDelete.setVisibility(android.view.View.GONE);
-					progressBar.setIndeterminate(false); progressBar.setProgress(progress); txtModelSub.setText(progress + "%");
+					progressBar.setIndeterminate(isExtracting);
+					if (isExtracting) txtModelSub.setText("");
+					else { progressBar.setProgress(progress); txtModelSub.setText(progress + "%"); }
 					selectIv.setVisibility(android.view.View.GONE); useRemoveTv.setText("Cancel"); btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor("#718096"));
 				} else {
 					progressBar.setVisibility(android.view.View.GONE); btnDelete.setVisibility(android.view.View.GONE);
@@ -512,12 +518,36 @@ public class ModelsFragmentActivity extends Fragment {
 
 						if (isPiperArchive) {
 							com.builtbydeep.sovra.PiperModelCatalog.DownloadTask task = com.builtbydeep.sovra.PiperModelCatalog.newDownloadTask(); String piperUrl = String.valueOf(item.get("model_url")); piperDownloadTasks.put(piperUrl, task);
-							item.put("model_dir", com.builtbydeep.sovra.PiperModelCatalog.getModelDirectory(context, item).getAbsolutePath()); item.put("is_downloading", "true"); item.put("download_progress", "0");
+							item.put("model_dir", com.builtbydeep.sovra.PiperModelCatalog.getModelDirectory(context, item).getAbsolutePath()); item.put("is_downloading", "true"); item.put("download_progress", "0"); item.remove("download_status");
 							sp1.edit().putString("models_data", new com.google.gson.Gson().toJson(modelList)).apply(); if (binding.recyclerviewModels.getAdapter() != null) binding.recyclerviewModels.getAdapter().notifyItemChanged(clickedPos);
 							android.os.Handler downloadHandler = new android.os.Handler(android.os.Looper.getMainLooper());
 							new Thread(() -> {
 								try {
-									java.io.File modelDir = task.download(context, item, percent -> downloadHandler.post(() -> { if (task.isCancelled()) return; item.put("download_progress", String.valueOf(percent)); if (binding != null && binding.recyclerviewModels.getAdapter() != null) { int itemPosition = modelList.indexOf(item); if (itemPosition >= 0) binding.recyclerviewModels.getAdapter().notifyItemChanged(itemPosition, "PROGRESS_UPDATE"); } }));
+									java.io.File modelDir = task.download(context, item, new com.builtbydeep.sovra.PiperModelCatalog.ProgressListener() {
+										@Override public void onProgress(int percent) {
+											downloadHandler.post(() -> {
+												if (task.isCancelled()) return;
+												item.put("download_progress", String.valueOf(percent));
+												item.remove("download_status");
+												if (binding != null && binding.recyclerviewModels.getAdapter() != null) {
+													int itemPosition = modelList.indexOf(item);
+													if (itemPosition >= 0) binding.recyclerviewModels.getAdapter().notifyItemChanged(itemPosition, "PROGRESS_UPDATE");
+												}
+											});
+										}
+
+										@Override public void onExtractionStarted() {
+											downloadHandler.post(() -> {
+												if (task.isCancelled()) return;
+												item.put("download_status", "extracting");
+												sp1.edit().putString("models_data", new com.google.gson.Gson().toJson(modelList)).apply();
+												if (binding != null && binding.recyclerviewModels.getAdapter() != null) {
+													int itemPosition = modelList.indexOf(item);
+													if (itemPosition >= 0) binding.recyclerviewModels.getAdapter().notifyItemChanged(itemPosition, "PROGRESS_UPDATE");
+												}
+											});
+										}
+									});
 									downloadHandler.post(() -> {
 										piperDownloadTasks.remove(piperUrl, task);
 										if (!task.isCancelled()) {
