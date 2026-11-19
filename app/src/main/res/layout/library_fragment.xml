@@ -4,14 +4,17 @@
 	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
 	android:layout_height="match_parent"
-	android:background="#0B1220"
+	android:background="#0F1117"
 	android:orientation="vertical"
-	android:padding="16dp">
+	android:paddingTop="16dp">
+
+	<!-- Header -->
 	<RelativeLayout
 		android:id="@+id/relativelayout2"
 		android:layout_width="match_parent"
 		android:layout_height="wrap_content"
-		android:layout_marginBottom="18dp">
+		android:layout_marginBottom="16dp">
+		
 		<TextView
 			android:id="@+id/textview5"
 			android:layout_width="wrap_content"
@@ -19,89 +22,120 @@
 			android:text="Speech History"
 			android:textSize="20sp"
 			android:textStyle="bold"
-			android:textColor="#FFFFFF"
+			android:textColor="#F1F5F9"
 			android:layout_centerInParent="true" />
 	</RelativeLayout>
-	<com.google.android.material.card.MaterialCardView
-		android:id="@+id/cardview3"
+
+	<!-- Top Tabs Container -->
+	<LinearLayout
 		android:layout_width="match_parent"
-		android:layout_height="50dp"
-		android:layout_marginBottom="16dp"
-		app:cardBackgroundColor="#131B2D"
-		app:cardCornerRadius="12dp"
-		app:strokeWidth="0dp">
-		<LinearLayout
-			android:id="@+id/linear3"
-			android:layout_width="match_parent"
-			android:layout_height="match_parent"
-			android:padding="4dp"
-			android:orientation="horizontal">
-			<com.google.android.material.card.MaterialCardView
-				android:id="@+id/cardview4"
-				android:layout_width="0dp"
+		android:layout_height="wrap_content"
+		android:layout_marginHorizontal="16dp"
+		android:layout_marginBottom="20dp"
+		android:orientation="horizontal">
+		
+		<!-- All Recordings Tab -->
+		<com.google.android.material.card.MaterialCardView
+			android:id="@+id/cardview4"
+			android:layout_width="0dp"
+			android:layout_height="44dp"
+			android:layout_weight="1"
+			android:layout_marginEnd="8dp"
+			app:cardBackgroundColor="#1A1D2E"
+			app:cardCornerRadius="22dp"
+			app:strokeColor="#4A9EFF"
+			app:strokeWidth="1dp"
+			app:cardElevation="0dp">
+			
+			<LinearLayout
+				android:layout_width="match_parent"
 				android:layout_height="match_parent"
-				android:layout_margin="2dp"
-				app:cardBackgroundColor="@android:color/transparent"
-				android:layout_weight="1"
-				app:cardCornerRadius="8dp"
-				app:strokeWidth="0dp">
+				android:gravity="center"
+				android:orientation="horizontal">
+				<ImageView
+					android:layout_width="16dp"
+					android:layout_height="16dp"
+					android:src="@drawable/icon_history"
+					app:tint="#4A9EFF"
+					android:layout_marginEnd="6dp"/>
 				<TextView
 					android:id="@+id/textview6"
-					android:layout_width="match_parent"
-					android:layout_height="match_parent"
-					android:gravity="center_horizontal|center_vertical"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
 					android:text="All Recordings"
-					android:textSize="12sp"
+					android:textSize="13sp"
 					android:textStyle="bold"
-					android:textColor="#FFFFFF" />
-			</com.google.android.material.card.MaterialCardView>
-			<com.google.android.material.card.MaterialCardView
-				android:id="@+id/cardview5"
-				android:layout_width="0dp"
+					android:textColor="#F1F5F9" />
+			</LinearLayout>
+		</com.google.android.material.card.MaterialCardView>
+		
+		<!-- Favorites Tab -->
+		<com.google.android.material.card.MaterialCardView
+			android:id="@+id/cardview5"
+			android:layout_width="0dp"
+			android:layout_height="44dp"
+			android:layout_weight="1"
+			app:cardBackgroundColor="#1A1D2E"
+			app:cardCornerRadius="22dp"
+			app:strokeColor="#2A2F45"
+			app:strokeWidth="1dp"
+			app:cardElevation="0dp">
+			
+			<LinearLayout
+				android:layout_width="match_parent"
 				android:layout_height="match_parent"
-				android:layout_margin="2dp"
-				app:cardBackgroundColor="@android:color/transparent"
-				android:layout_weight="1"
-				app:cardCornerRadius="8dp"
-				app:strokeWidth="0dp">
+				android:gravity="center"
+				android:orientation="horizontal">
+				<ImageView
+					android:layout_width="16dp"
+					android:layout_height="16dp"
+					android:src="@drawable/icon_favorite_outline"
+					app:tint="#94A3B8"
+					android:layout_marginEnd="6dp"/>
 				<TextView
 					android:id="@+id/textview7"
-					android:layout_width="match_parent"
-					android:layout_height="match_parent"
-					android:gravity="center_horizontal|center_vertical"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
 					android:text="Favorites"
-					android:textSize="12sp"
+					android:textSize="13sp"
 					android:textStyle="bold"
-					android:textColor="#FFFFFF" />
-			</com.google.android.material.card.MaterialCardView>
-		</LinearLayout>
-	</com.google.android.material.card.MaterialCardView>
+					android:textColor="#94A3B8" />
+			</LinearLayout>
+		</com.google.android.material.card.MaterialCardView>
+	</LinearLayout>
+
+	<!-- RecyclerView and Empty State -->
 	<FrameLayout
 		android:id="@+id/frame_layout6"
 		android:layout_width="match_parent"
 		android:layout_height="0dp"
 		android:layout_weight="1">
+		
 		<androidx.recyclerview.widget.RecyclerView
 			android:id="@+id/recyclerview_history"
 			android:layout_width="match_parent"
 			android:layout_height="match_parent"
 			android:clipToPadding="false"
+			android:paddingBottom="80dp"
 			android:visibility="gone" />
+			
 		<LinearLayout
 			android:id="@+id/linear4"
 			android:layout_width="match_parent"
 			android:layout_height="wrap_content"
 			android:padding="20dp"
-			android:gravity="center_horizontal|center_vertical"
+			android:gravity="center"
 			android:orientation="vertical"
-			android:layout_gravity="center_horizontal|center_vertical">
+			android:layout_gravity="center">
+			
 			<ImageView
 				android:id="@+id/history_iv"
 				android:layout_width="60dp"
 				android:layout_height="60dp"
 				android:src="@drawable/icon_history"
 				android:scaleType="fitXY"
-				app:tint="#1E293B" />
+				app:tint="#2A2F45" />
+				
 			<TextView
 				android:id="@+id/history_status_tv"
 				android:layout_width="wrap_content"
@@ -110,8 +144,9 @@
 				android:text="No Saved Audio Found"
 				android:textSize="16sp"
 				android:textStyle="bold"
-				android:textColor="#4A5568" />
+				android:textColor="#94A3B8" />
 		</LinearLayout>
 	</FrameLayout>
+
 	<include layout="@layout/bottom_mini_player" />
 </LinearLayout>

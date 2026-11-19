@@ -14,8 +14,8 @@ android {
     useLibrary 'org.apache.http.legacy'
 
     defaultConfig {
-        applicationId "com.CodeBySonu.VoxSherpa"
-        namespace "com.CodeBySonu.VoxSherpa"
+        applicationId "com.exlab.tts"
+        namespace "com.builtbydeep.sovra"
         minSdkVersion 30
         targetSdkVersion 36
         // Skipped version codes (13–21) due to technical restructuring.
@@ -67,7 +67,10 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:34.1.0')
     implementation 'com.google.firebase:firebase-database'
     implementation 'com.google.code.gson:gson:2.11.0'
-    implementation 'com.github.k2-fsa:sherpa-onnx:1.12.26'
+    implementation('com.github.k2-fsa:sherpa-onnx:1.13.8') {
+        exclude group: 'com.github.k2-fsa.sherpa-onnx', module: 'sherpa-onnx-jvm'
+    }
+    implementation 'org.apache.commons:commons-compress:1.27.1'
     implementation 'com.tom-roush:pdfbox-android:2.0.27.0'
 
     testImplementation 'junit:junit:4.13.2'

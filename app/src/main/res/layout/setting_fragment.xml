@@ -37,7 +37,7 @@
 			android:text="VOICE SETTINGS"
 			android:textSize="12sp"
 			android:textStyle="bold"
-			android:textColor="#1D61FF"
+			android:textColor="#00E5FF"
 			android:letterSpacing="0.05" />
 		<LinearLayout
 			android:id="@+id/audio_pitch_contener"
@@ -57,7 +57,7 @@
 					android:layout_height="24dp"
 					android:src="@drawable/icon_graphic_eq"
 					android:scaleType="fitXY"
-					app:tint="#718096" />
+					app:tint="#94A3B8" />
 				<TextView
 					android:id="@+id/textview59"
 					android:layout_width="0dp"
@@ -73,7 +73,7 @@
 					android:layout_height="wrap_content"
 					android:text="1.0x"
 					android:textSize="14sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<SeekBar
 				android:id="@+id/seekbar_pitch"
@@ -83,8 +83,8 @@
 				android:layout_marginTop="12dp"
 				android:layout_marginRight="12dp"
 				android:progress="50"
-				android:progressTint="#1D61FF"
-				android:thumbTint="#1D61FF" />
+				android:progressTint="#00E5FF"
+				android:thumbTint="#00E5FF" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/audio_speed_contener"
@@ -104,7 +104,7 @@
 					android:layout_height="24dp"
 					android:src="@drawable/icon_speed"
 					android:scaleType="fitXY"
-					app:tint="#718096" />
+					app:tint="#94A3B8" />
 				<TextView
 					android:id="@+id/textview61"
 					android:layout_width="0dp"
@@ -120,7 +120,7 @@
 					android:layout_height="wrap_content"
 					android:text="1.0x"
 					android:textSize="14sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<SeekBar
 				android:id="@+id/seekbar_speed"
@@ -130,8 +130,8 @@
 				android:layout_marginTop="12dp"
 				android:layout_marginRight="12dp"
 				android:progress="50"
-				android:progressTint="#1D61FF"
-				android:thumbTint="#1D61FF" />
+				android:progressTint="#00E5FF"
+				android:thumbTint="#00E5FF" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/audio_silence_contener"
@@ -151,7 +151,7 @@
 					android:layout_height="24dp"
 					android:src="@drawable/icon_av_timer"
 					android:scaleType="fitXY"
-					app:tint="#718096" />
+					app:tint="#94A3B8" />
 				<TextView
 					android:id="@+id/textview4"
 					android:layout_width="0dp"
@@ -167,7 +167,7 @@
 					android:layout_height="wrap_content"
 					android:text="1.0x"
 					android:textSize="14sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<SeekBar
 				android:id="@+id/seekbar_silence_pause"
@@ -177,14 +177,14 @@
 				android:layout_marginTop="12dp"
 				android:layout_marginRight="12dp"
 				android:progress="50"
-				android:progressTint="#1D61FF"
-				android:thumbTint="#1D61FF" />
+				android:progressTint="#00E5FF"
+				android:thumbTint="#00E5FF" />
 		</LinearLayout>
 		<View
 			android:id="@+id/view32"
 			android:layout_width="match_parent"
 			android:layout_height="1dp"
-			android:background="#1E293B"
+			android:background="#1A2234"
 			android:layout_marginVertical="28dp" />
 		<TextView
 			android:id="@+id/textview63"
@@ -193,7 +193,7 @@
 			android:text="SPEECH SETTINGS"
 			android:textSize="12sp"
 			android:textStyle="bold"
-			android:textColor="#1D61FF" />
+			android:textColor="#00E5FF" />
 		<LinearLayout
 			android:id="@+id/Smart_Punctuation_rl"
 			android:layout_width="match_parent"
@@ -207,7 +207,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_tune"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<LinearLayout
 				android:id="@+id/linear33"
 				android:layout_width="0dp"
@@ -228,7 +228,7 @@
 					android:layout_height="wrap_content"
 					android:text="Natural pauses after punctuation"
 					android:textSize="12sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<Switch
 				android:id="@+id/switch_Punctuation"
@@ -250,7 +250,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_graphic_eq"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<LinearLayout
 				android:id="@+id/linear_dynamic"
 				android:layout_width="0dp"
@@ -271,7 +271,7 @@
 					android:layout_height="wrap_content"
 					android:text="tags like [whisper] and [angry]."
 					android:textSize="12sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<Switch
 				android:id="@+id/switch_emotion"
@@ -292,7 +292,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_groups"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<LinearLayout
 				android:id="@+id/linear10"
 				android:layout_width="0dp"
@@ -313,7 +313,7 @@
 					android:layout_height="wrap_content"
 					android:text="tags like [speaker1] and [speaker2]."
 					android:textSize="12sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<Switch
 				android:id="@+id/switch_multi_speakers"
@@ -334,7 +334,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_translate"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<LinearLayout
 				android:id="@+id/linear_mms"
 				android:layout_width="0dp"
@@ -355,7 +355,7 @@
 					android:layout_height="wrap_content"
 					android:text="Show 1100+ low-resource language models"
 					android:textSize="12sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<Switch
 				android:id="@+id/switch_mms"
@@ -376,7 +376,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_theater"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<LinearLayout
 				android:id="@+id/linear6"
 				android:layout_width="0dp"
@@ -397,7 +397,7 @@
 					android:layout_height="wrap_content"
 					android:text="Change reading style and tone • Normal"
 					android:textSize="12sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<ImageView
 				android:id="@+id/imageview16"
@@ -410,7 +410,7 @@
 			android:id="@+id/view35"
 			android:layout_width="match_parent"
 			android:layout_height="1dp"
-			android:background="#1E293B"
+			android:background="#1A2234"
 			android:layout_marginVertical="28dp" />
 		<TextView
 			android:id="@+id/textview66"
@@ -419,7 +419,7 @@
 			android:text="STORAGE"
 			android:textSize="12sp"
 			android:textStyle="bold"
-			android:textColor="#1D61FF" />
+			android:textColor="#00E5FF" />
 		<LinearLayout
 			android:id="@+id/onnx_model_rl"
 			android:layout_width="match_parent"
@@ -433,7 +433,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_model_selected"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<LinearLayout
 				android:id="@+id/linear36"
 				android:layout_width="0dp"
@@ -454,7 +454,7 @@
 					android:layout_height="wrap_content"
 					android:text="4 local models imported"
 					android:textSize="12sp"
-					android:textColor="#718096" />
+					android:textColor="#94A3B8" />
 			</LinearLayout>
 			<TextView
 				android:id="@+id/totalSizeCountTv"
@@ -503,7 +503,7 @@
 			android:id="@+id/view38"
 			android:layout_width="match_parent"
 			android:layout_height="1dp"
-			android:background="#1E293B"
+			android:background="#1A2234"
 			android:layout_marginVertical="28dp" />
 		<TextView
 			android:id="@+id/textview71"
@@ -512,7 +512,7 @@
 			android:text="ABOUT"
 			android:textSize="12sp"
 			android:textStyle="bold"
-			android:textColor="#1D61FF" />
+			android:textColor="#00E5FF" />
 		<LinearLayout
 			android:id="@+id/app_version_rl"
 			android:layout_width="match_parent"
@@ -528,7 +528,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/ic_info"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<TextView
 				android:id="@+id/textview72"
 				android:layout_width="0dp"
@@ -544,7 +544,7 @@
 				android:layout_height="wrap_content"
 				android:text="v2.4.0-stable"
 				android:textSize="14sp"
-				android:textColor="#718096" />
+				android:textColor="#94A3B8" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/relativelayout24"
@@ -561,7 +561,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/default_image"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<TextView
 				android:id="@+id/textview74"
 				android:layout_width="0dp"
@@ -577,7 +577,7 @@
 				android:layout_height="20dp"
 				android:src="@drawable/icon_keyboard_arrow_right"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/linear2"
@@ -594,7 +594,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_security"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<TextView
 				android:id="@+id/textview2"
 				android:layout_width="0dp"
@@ -610,7 +610,7 @@
 				android:layout_height="20dp"
 				android:src="@drawable/icon_keyboard_arrow_right"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/linear3"
@@ -627,7 +627,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_text_snippet"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<TextView
 				android:id="@+id/textview3"
 				android:layout_width="0dp"
@@ -643,7 +643,7 @@
 				android:layout_height="20dp"
 				android:src="@drawable/icon_keyboard_arrow_right"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/linear7"
@@ -660,7 +660,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_feedback"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<TextView
 				android:id="@+id/textview7"
 				android:layout_width="0dp"
@@ -676,7 +676,7 @@
 				android:layout_height="20dp"
 				android:src="@drawable/icon_keyboard_arrow_right"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/linear12"
@@ -693,7 +693,7 @@
 				android:layout_height="24dp"
 				android:src="@drawable/icon_settings_suggest"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 			<TextView
 				android:id="@+id/textview8"
 				android:layout_width="0dp"
@@ -709,7 +709,7 @@
 				android:layout_height="20dp"
 				android:src="@drawable/icon_keyboard_arrow_right"
 				android:scaleType="fitXY"
-				app:tint="#718096" />
+				app:tint="#94A3B8" />
 		</LinearLayout>
 	</LinearLayout>
 </androidx.core.widget.NestedScrollView>

@@ -4,7 +4,7 @@
 	xmlns:tools="http://schemas.android.com/tools"
 	android:layout_width="match_parent"
 	android:layout_height="match_parent"
-	android:background="#0B1220">
+	android:background="#070B14">
 	<androidx.viewpager2.widget.ViewPager2
 		android:id="@+id/viewpager"
 		android:layout_width="match_parent"
@@ -14,7 +14,7 @@
 		android:id="@+id/bottom_nav_container"
 		android:layout_width="match_parent"
 		android:layout_height="75dp"
-		android:background="#0B1220"
+		android:background="#070B14"
 		android:gravity="center_horizontal|center_vertical"
 		android:orientation="horizontal"
 		android:weightSum="4"
@@ -32,7 +32,7 @@
 				android:id="@+id/bg_generate"
 				android:layout_width="56dp"
 				android:layout_height="32dp"
-				app:cardBackgroundColor="#1D61FF"
+				app:cardBackgroundColor="#00E5FF"
 				app:cardCornerRadius="16dp"
 				app:cardElevation="0dp"
 				app:strokeWidth="0dp">
@@ -87,7 +87,7 @@
 						android:layout_height="22dp"
 						android:src="@drawable/icon_memory"
 						android:scaleType="fitCenter"
-						app:tint="#8E99AF" />
+						app:tint="#94A3B8" />
 				</LinearLayout>
 			</com.google.android.material.card.MaterialCardView>
 			<TextView
@@ -97,7 +97,7 @@
 				android:layout_marginTop="4dp"
 				android:text="Models"
 				android:textSize="11sp"
-				android:textColor="#8E99AF" />
+				android:textColor="#94A3B8" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/nav_library"
@@ -126,7 +126,7 @@
 						android:layout_height="22dp"
 						android:src="@drawable/icon_library_music"
 						android:scaleType="fitCenter"
-						app:tint="#8E99AF" />
+						app:tint="#94A3B8" />
 				</LinearLayout>
 			</com.google.android.material.card.MaterialCardView>
 			<TextView
@@ -136,7 +136,7 @@
 				android:layout_marginTop="4dp"
 				android:text="Library"
 				android:textSize="11sp"
-				android:textColor="#8E99AF" />
+				android:textColor="#94A3B8" />
 		</LinearLayout>
 		<LinearLayout
 			android:id="@+id/nav_settings"
@@ -165,7 +165,7 @@
 						android:layout_height="22dp"
 						android:src="@drawable/icon_settings"
 						android:scaleType="fitCenter"
-						app:tint="#8E99AF" />
+						app:tint="#94A3B8" />
 				</LinearLayout>
 			</com.google.android.material.card.MaterialCardView>
 			<TextView
@@ -175,7 +175,7 @@
 				android:layout_marginTop="4dp"
 				android:text="Settings"
 				android:textSize="11sp"
-				android:textColor="#8E99AF" />
+				android:textColor="#94A3B8" />
 		</LinearLayout>
 	</LinearLayout>
 </RelativeLayout>

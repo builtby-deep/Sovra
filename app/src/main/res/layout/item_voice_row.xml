@@ -19,7 +19,7 @@
 		android:layout_height="24dp"
 		android:src="@drawable/icon_radio_button_unchecked"
 		android:scaleType="fitXY"
-		app:tint="#A0AEC0" />
+		app:tint="#94A3B8" />
 	<LinearLayout
 		android:id="@+id/linear2"
 		android:layout_width="0dp"
@@ -44,7 +44,7 @@
 			android:layout_marginTop="4dp"
 			android:text="Standard Voice • 4.2 MB"
 			android:textSize="13sp"
-			android:textColor="#A0AEC0" />
+			android:textColor="#94A3B8" />
 	</LinearLayout>
 	<com.google.android.material.card.MaterialCardView
 		android:id="@+id/btn_play_sample"
@@ -65,7 +65,7 @@
 				android:layout_height="20dp"
 				android:src="@drawable/icon_play_circle"
 				android:scaleType="fitXY"
-				app:tint="#A0AEC0"
+				app:tint="#94A3B8"
 				android:layout_centerInParent="true" />
 			<ProgressBar
 				android:id="@+id/progress_buffering"
