@@ -7,10 +7,13 @@ import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.compressors.bzip2.BZip2CompressorOutputStream;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import org.junit.Rule;
@@ -167,6 +170,31 @@ public class PiperModelCatalogTest {
         assertEquals("tokens", new String(
                 java.nio.file.Files.readAllBytes(new File(modelDir, "tokens.txt").toPath()),
                 StandardCharsets.UTF_8));
+    }
+
+    @Test
+    public void streamingExtractionReportsCompressedInputProgressThroughInstallation()
+            throws Exception {
+        ByteArrayOutputStream compressedArchive = new ByteArrayOutputStream();
+        try (BZip2CompressorOutputStream bzipOutput =
+                     new BZip2CompressorOutputStream(compressedArchive);
+             TarArchiveOutputStream tarOutput = new TarArchiveOutputStream(bzipOutput)) {
+            addEntry(tarOutput, "nested/model.onnx", "onnx".getBytes(StandardCharsets.UTF_8));
+            addEntry(tarOutput, "nested/tokens.txt", "tokens".getBytes(StandardCharsets.UTF_8));
+        }
+        File modelDir = temporaryFolder.newFolder("streamed-piper");
+        List<Integer> progress = new ArrayList<>();
+
+        PiperModelCatalog.extractArchive(new ByteArrayInputStream(compressedArchive.toByteArray()),
+                modelDir, PiperModelCatalog.newDownloadTask(), compressedArchive.size(),
+                progress::add);
+
+        assertTrue(PiperModelCatalog.isInstalled(modelDir));
+        assertTrue(progress.get(0) >= 1 && progress.get(0) <= 99);
+        assertEquals(Integer.valueOf(100), progress.get(progress.size() - 1));
+        for (int i = 1; i < progress.size(); i++) {
+            assertTrue(progress.get(i) >= progress.get(i - 1));
+        }
     }
 
     private static void addEntry(

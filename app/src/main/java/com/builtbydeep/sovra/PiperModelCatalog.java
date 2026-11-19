@@ -11,6 +11,7 @@ import java.io.EOFException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -30,8 +31,6 @@ public final class PiperModelCatalog {
 
     public interface ProgressListener {
         void onProgress(int percent);
-
-        default void onExtractionStarted() {}
     }
 
     public static List<HashMap<String, Object>> createCatalogEntries() {
@@ -160,13 +159,9 @@ public final class PiperModelCatalog {
             if (!modelsDir.exists() && !modelsDir.mkdirs() && !modelsDir.isDirectory()) {
                 throw new IOException("Unable to create the Piper model directory.");
             }
-            String archiveName = String.valueOf(model.get("archive_name"));
-            File archive = new File(modelsDir, archiveName);
-            File partial = new File(modelsDir, archiveName + ".part");
             HttpURLConnection connection = (HttpURLConnection)
                     new URL(String.valueOf(model.get("archive_url"))).openConnection();
             activeConnection = connection;
-            byte[] buffer = new byte[32768];
             try {
                 ensureNotCancelled();
                 connection.setConnectTimeout(30000);
@@ -180,45 +175,14 @@ public final class PiperModelCatalog {
                             + responseCode + ").");
                 }
                 long contentLength = connection.getContentLengthLong();
-                long bytesRead = 0;
-                try (InputStream input = connection.getInputStream();
-                     FileOutputStream output = new FileOutputStream(partial)) {
-                    int count;
-                    while ((count = input.read(buffer)) != -1) {
-                        ensureNotCancelled();
-                        output.write(buffer, 0, count);
-                        bytesRead += count;
-                        if (listener != null) {
-                            listener.onProgress(Math.min(99,
-                                    calculateDownloadProgress(bytesRead, contentLength)));
-                        }
-                    }
-                }
-                if (bytesRead == 0 || (contentLength >= 0 && bytesRead != contentLength)) {
-                    throw new IOException("The Piper archive is empty or incomplete.");
+                try (InputStream input = connection.getInputStream()) {
+                    extractArchive(input, modelDir, this, contentLength, listener);
                 }
                 ensureNotCancelled();
-                if (archive.exists() && !archive.delete()) {
-                    throw new IOException("Unable to replace the previous Piper archive.");
-                }
-                if (!partial.renameTo(archive)) {
-                    throw new IOException("Unable to save the Piper archive.");
-                }
-                if (listener != null) listener.onProgress(100);
+                return modelDir;
             } finally {
                 activeConnection = null;
                 connection.disconnect();
-                if (partial.exists()) partial.delete();
-            }
-
-            try {
-                ensureNotCancelled();
-                if (listener != null) listener.onExtractionStarted();
-                extractArchive(archive, modelDir, this);
-                return modelDir;
-            } catch (IOException error) {
-                if (archive.exists()) archive.delete();
-                throw error;
             }
         }
 
@@ -241,8 +205,16 @@ public final class PiperModelCatalog {
 
     static void extractArchive(File archive, File modelDir, DownloadTask task)
             throws IOException {
+        try (InputStream fileInput = new BufferedInputStream(new FileInputStream(archive))) {
+            extractArchive(fileInput, modelDir, task, -1, null);
+        }
+        archive.delete();
+    }
+
+    static void extractArchive(InputStream archiveInput, File modelDir, DownloadTask task,
+                               long contentLength, ProgressListener listener)
+            throws IOException {
         if (isInstalled(modelDir)) {
-            archive.delete();
             return;
         }
         File stagingDir = new File(modelDir.getParentFile(), modelDir.getName() + ".extracting");
@@ -251,8 +223,9 @@ public final class PiperModelCatalog {
             throw new IOException("Unable to create the Piper staging directory.");
         }
 
-        try (InputStream fileInput = new BufferedInputStream(new FileInputStream(archive));
-             InputStream bzipInput = new BZip2CompressorInputStream(fileInput);
+        CountingInputStream countedInput = new CountingInputStream(archiveInput, task,
+                contentLength, listener);
+        try (InputStream bzipInput = new BZip2CompressorInputStream(countedInput);
              TarArchiveInputStream tarInput = new TarArchiveInputStream(bzipInput)) {
             TarArchiveEntry entry;
             byte[] buffer = new byte[32768];
@@ -298,6 +271,13 @@ public final class PiperModelCatalog {
                     }
                 }
             }
+            while (bzipInput.read(buffer) != -1) {
+                task.ensureNotCancelled();
+            }
+            if (countedInput.getBytesRead() == 0
+                    || (contentLength >= 0 && countedInput.getBytesRead() != contentLength)) {
+                throw new IOException("The Piper archive is empty or incomplete.");
+            }
         } catch (IOException error) {
             deleteTree(stagingDir);
             throw error;
@@ -312,7 +292,53 @@ public final class PiperModelCatalog {
             deleteTree(stagingDir);
             throw new IOException("Unable to install the extracted Piper model.");
         }
-        archive.delete();
+        if (listener != null) listener.onProgress(100);
+    }
+
+    private static final class CountingInputStream extends FilterInputStream {
+        private final DownloadTask task;
+        private final long contentLength;
+        private final ProgressListener listener;
+        private long bytesRead;
+        private int lastReportedProgress;
+
+        CountingInputStream(InputStream input, DownloadTask task, long contentLength,
+                            ProgressListener listener) {
+            super(input);
+            this.task = task;
+            this.contentLength = contentLength;
+            this.listener = listener;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = super.read();
+            if (value != -1) recordBytesRead(1);
+            return value;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int count = super.read(buffer, offset, length);
+            if (count > 0) recordBytesRead(count);
+            return count;
+        }
+
+        long getBytesRead() {
+            return bytesRead;
+        }
+
+        private void recordBytesRead(int count) throws IOException {
+            task.ensureNotCancelled();
+            bytesRead += count;
+            if (listener != null) {
+                int progress = Math.min(99, calculateDownloadProgress(bytesRead, contentLength));
+                if (progress > lastReportedProgress) {
+                    lastReportedProgress = progress;
+                    listener.onProgress(progress);
+                }
+            }
+        }
     }
 
     private static boolean isTokenFile(String fileName) {
