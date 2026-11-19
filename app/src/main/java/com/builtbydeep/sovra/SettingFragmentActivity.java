@@ -102,7 +102,7 @@ public class SettingFragmentActivity extends Fragment {
 			public void onClick(View _view) {
 				
 				Intent i = new Intent(Intent.ACTION_VIEW);
-				i.setData(Uri.parse("https://codebysonu95.github.io/Sovra-TTS/assets/Privacy.html"));
+				i.setData(Uri.parse("https://github.com/builtby-deep/Sovra"));
 				startActivity(i);
 			}
 		});
@@ -142,7 +142,7 @@ public class SettingFragmentActivity extends Fragment {
 				// 🚀 NAYA LOGIC: ACTION_SENDTO aur mailto: scheme ka use karein
 				Intent intent = new Intent(Intent.ACTION_SENDTO);
 				intent.setData(Uri.parse("mailto:")); // Ye STRICTLY sirf email apps ko bulayega (PayPal, WhatsApp blocked)
-				intent.putExtra(Intent.EXTRA_EMAIL, new String[]{"codebysonu95@gmail.com"});
+				intent.putExtra(Intent.EXTRA_EMAIL, new String[]{"support@builtbydeep.dev"});
 				intent.putExtra(Intent.EXTRA_SUBJECT, "Exlab Feedback");
 				intent.putExtra(Intent.EXTRA_TEXT, body);
 				
