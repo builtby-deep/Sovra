@@ -1,39 +1,28 @@
-<?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="SovraMaterialButton" parent="Widget.Material3.Button">
-        <item name="cornerRadius">10dp</item>
+
+    <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+
+        <!-- Status bar -->
+        <item name="android:statusBarColor">#0B1220</item>
+        <item name="android:navigationBarColor">#0B1220</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Purple when switch is ON -->
+        <item name="colorControlActivated">#6750A4</item>
+
     </style>
 
-    <style name="SovraIconButton" parent="Widget.Material3.Button">
-        <item name="cornerRadius">12dp</item>
-        <item name="android:minWidth">44dp</item>
-        <item name="android:minHeight">44dp</item>
-        <item name="android:insetLeft">0dp</item>
-        <item name="android:insetRight">0dp</item>
-        <item name="android:insetTop">0dp</item>
-        <item name="android:insetBottom">0dp</item>
+    <style name="AppTheme.FullScreen" parent="AppTheme">
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
     </style>
 
-    <style name="SovraLinkButton" parent="Widget.Material3.Button">
-        <item name="cornerRadius">10dp</item>
-        <item name="android:gravity">start|center_vertical</item>
-        <item name="android:insetLeft">0dp</item>
-        <item name="android:insetRight">0dp</item>
-        <item name="android:insetTop">0dp</item>
-        <item name="android:insetBottom">0dp</item>
-        <item name="android:textColor">@color/sovra_text</item>
-        <item name="backgroundTint">@android:color/transparent</item>
+    <style name="AppTheme.AppBarOverlay" parent="ThemeOverlay.Material3" />
+    <style name="AppTheme.PopupOverlay" parent="ThemeOverlay.Material3" />
+
+    <style name="AppTheme.DebugActivity" parent="AppTheme">
+        <item name="windowActionBar">true</item>
+        <item name="windowNoTitle">false</item>
     </style>
 
-    <style name="SovraTextInput">
-        <item name="android:background">@drawable/bg_edit_text</item>
-        <item name="android:textColor">#FFFFFF</item>
-        <item name="android:textColorHint">#6B7280</item>
-        <item name="android:padding">12dp</item>
-    </style>
-
-    <style name="SovraSpinner">
-        <item name="android:backgroundTint">@color/sovra_accent</item>
-        <item name="android:popupBackground">@color/sovra_surface</item>
-    </style>
 </resources>
