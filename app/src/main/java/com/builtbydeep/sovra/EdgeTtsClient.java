@@ -18,6 +18,7 @@ import java.security.SecureRandom;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
@@ -167,12 +168,7 @@ public final class EdgeTtsClient {
                     if (!name.isEmpty() && !locale.isEmpty()) voices.add(new Voice(name, locale, gender));
                 }
                 if (!voices.isEmpty()) {
-                    java.util.HashSet<String> names = new java.util.HashSet<>();
-                    for (Voice voice : voices) names.add(voice.name);
-                    for (Voice fallback : fallbackVoices()) {
-                        if (names.add(fallback.name)) voices.add(fallback);
-                    }
-                    return voices;
+                    return deduplicateVoices(voices);
                 }
                 lastError = new IOException("Voice list response contained no voices.");
                 break;
@@ -194,7 +190,28 @@ public final class EdgeTtsClient {
         }
         android.util.Log.w("EdgeTtsClient",
                 "Voice list unavailable; using the built-in Edge TTS voices.", lastError);
-        return fallbackVoices();
+        return deduplicateVoices(fallbackVoices());
+    }
+
+    static List<Voice> deduplicateVoices(List<Voice> voices) {
+        LinkedHashMap<String, Voice> uniqueVoices = new LinkedHashMap<>();
+        for (Voice voice : voices) {
+            String key = voice.name.toLowerCase(Locale.ROOT);
+            if (!uniqueVoices.containsKey(key)) uniqueVoices.put(key, voice);
+        }
+        return new ArrayList<>(uniqueVoices.values());
+    }
+
+    public static String formatDisplayName(String shortName, String gender) {
+        int lastHyphen = shortName.lastIndexOf('-');
+        String cleanName = shortName.substring(lastHyphen + 1);
+        if (cleanName.endsWith("MultilingualNeural")) {
+            cleanName = cleanName.substring(0,
+                    cleanName.length() - "MultilingualNeural".length()) + " (Multilingual)";
+        } else if (cleanName.endsWith("Neural")) {
+            cleanName = cleanName.substring(0, cleanName.length() - "Neural".length());
+        }
+        return cleanName + " • " + gender;
     }
 
     public SynthesizedAudio synthesize(Context context, String text, Voice voice, float speed,
@@ -753,7 +770,7 @@ public final class EdgeTtsClient {
         }
 
         public String displayName() {
-            return name + " • " + gender;
+            return formatDisplayName(name, gender);
         }
     }
 

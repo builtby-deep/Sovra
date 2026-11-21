@@ -918,7 +918,8 @@ public class GenerateFragmentActivity extends Fragment {
 			if (isEdgeTts) {
 				String voice = sp1.getString("edge_voice", "hi-IN-SwaraNeural");
 				String gender = sp1.getString("edge_voice_gender", "Female");
-				binding.voiceNameTv.setText(voice + " • " + gender);
+				binding.voiceNameTv.setText(
+						com.builtbydeep.sovra.EdgeTtsClient.formatDisplayName(voice, gender));
 			} else if (isSupertonic) {
 				int speakerId = sp1.getInt("active_supertonic_speaker", 0);
 				com.builtbydeep.sovra.SupertonicEngine.getInstance().setActiveSpeakerId(speakerId);
@@ -1658,8 +1659,9 @@ public class GenerateFragmentActivity extends Fragment {
 				binding.opneDropdown.setVisibility(android.view.View.GONE);
 			}
 			if (isEdgeTts) {
-				binding.voiceNameTv.setText(sp1.getString("edge_voice", "hi-IN-SwaraNeural")
-						+ " • " + sp1.getString("edge_voice_gender", "Female"));
+				binding.voiceNameTv.setText(com.builtbydeep.sovra.EdgeTtsClient.formatDisplayName(
+						sp1.getString("edge_voice", "hi-IN-SwaraNeural"),
+						sp1.getString("edge_voice_gender", "Female")));
 			} else if (isSupertonic) {
 				int speakerId = sp1.getInt("active_supertonic_speaker", 0);
 				com.builtbydeep.sovra.SupertonicEngine.getInstance().setActiveSpeakerId(speakerId);

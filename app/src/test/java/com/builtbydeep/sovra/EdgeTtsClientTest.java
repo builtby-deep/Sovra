@@ -3,6 +3,9 @@ package com.builtbydeep.sovra;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
+import java.util.Arrays;
+import java.util.List;
+
 import org.junit.Test;
 
 public class EdgeTtsClientTest {
@@ -34,5 +37,29 @@ public class EdgeTtsClientTest {
         assertEquals("hi-IN", voices.get(0).locale);
         assertEquals("Female", voices.get(0).gender);
         assertEquals("ja-JP-NanamiNeural", voices.get(7).name);
+    }
+
+    @Test
+    public void displayNameUsesCleanSpeakerTokenAcrossLocales() {
+        assertEquals("Madhur • Male",
+                EdgeTtsClient.formatDisplayName("hi-IN-MadhurNeural", "Male"));
+        assertEquals("Xiaobei • Female",
+                EdgeTtsClient.formatDisplayName("zh-CN-liaoning-XiaobeiNeural", "Female"));
+        assertEquals("Andrew (Multilingual) • Male",
+                EdgeTtsClient.formatDisplayName("en-US-AndrewMultilingualNeural", "Male"));
+    }
+
+    @Test
+    public void deduplicateVoicesPreservesFirstVoiceAndOrderIgnoringCase() {
+        EdgeTtsClient.Voice first = new EdgeTtsClient.Voice("en-US-EmmaNeural", "en-US", "Female");
+        EdgeTtsClient.Voice duplicate = new EdgeTtsClient.Voice("EN-us-emmaneural", "en-US", "Male");
+        EdgeTtsClient.Voice next = new EdgeTtsClient.Voice("en-GB-SoniaNeural", "en-GB", "Female");
+
+        List<EdgeTtsClient.Voice> voices =
+                EdgeTtsClient.deduplicateVoices(Arrays.asList(first, duplicate, next));
+
+        assertEquals(2, voices.size());
+        assertTrue(voices.get(0) == first);
+        assertTrue(voices.get(1) == next);
     }
 }
