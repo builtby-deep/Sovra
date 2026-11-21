@@ -674,8 +674,17 @@ public class GenerateFragmentActivity extends Fragment {
 									if (isEdgeTts) {
 										long totalFrames = finalPcmBytes / 2L;
 										double totalSeconds = (double) totalFrames / finalSampleRate;
+										final int w = binding.imgWaveform.getWidth() > 0
+												? binding.imgWaveform.getWidth() : 800;
 										binding.playheadLine.setVisibility(android.view.View.VISIBLE);
-										binding.imgWaveform.setImageDrawable(null);
+										android.graphics.Bitmap waveBmp =
+												com.builtbydeep.sovra.WaveformHelper
+														.createWaveformBitmap(finalPcmFile, w, 150);
+										if (waveBmp != null) {
+											binding.imgWaveform.setImageBitmap(waveBmp);
+										} else {
+											binding.imgWaveform.setImageDrawable(null);
+										}
 										binding.tvDuration.setText(String.format(java.util.Locale.US,
 												"0:00 / %d:%02d", (int) (totalSeconds / 60),
 												(int) (totalSeconds % 60)));
@@ -1744,10 +1753,9 @@ public class GenerateFragmentActivity extends Fragment {
 
 	private void updateEdgeTtsFilters(boolean isEdgeTts) {
 		binding.textview67.setText(isEdgeTts ? "CLOUD VOICE MODEL" : "ONNX VOICE MODEL");
-		binding.kokoroVoiceFilters.setVisibility(isEdgeTts
-				? android.view.View.VISIBLE : android.view.View.GONE);
 		if (!isEdgeTts) return;
 
+		binding.kokoroVoiceFilters.setVisibility(android.view.View.VISIBLE);
 		binding.voiceInfoCard.setVisibility(android.view.View.GONE);
 		binding.opneDropdown.setVisibility(android.view.View.GONE);
 		java.util.ArrayList<String> regionLocales = new java.util.ArrayList<>();
