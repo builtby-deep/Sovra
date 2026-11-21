@@ -9,13 +9,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
+import java.text.SimpleDateFormat;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.security.SecureRandom;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.LinkedHashMap;
@@ -42,6 +43,12 @@ public final class EdgeTtsClient {
             "6A5AA1D4EAFF4E9FB37E23D68491D6F4";
     public static final String SEC_MS_GEC_VERSION = "2-143.0.3650.75";
     private static final String CHROMIUM_MAJOR_VERSION = "143";
+    private static volatile String activeSecMsGecVersion = SEC_MS_GEC_VERSION;
+    private static volatile String activeChromiumMajorVersion = CHROMIUM_MAJOR_VERSION;
+
+    private static final int MAX_CHUNK_ESCAPED_UTF8_BYTES = 3500;
+    private static final float DEFAULT_INTER_CHUNK_SILENCE_SECONDS = 0.12f;
+
     private static final String VOICES_URL =
             "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list"
                     + "?trustedclienttoken=" + TRUSTED_CLIENT_TOKEN;
@@ -114,8 +121,26 @@ public final class EdgeTtsClient {
             .build();
 
     private volatile WebSocket activeSocket;
+    private volatile boolean cancelled;
 
     public EdgeTtsClient() {}
+
+    public static void updateProtocolVersion(String secMsGecVersion, String chromiumMajorVersion) {
+        if (secMsGecVersion != null && !secMsGecVersion.trim().isEmpty()) {
+            activeSecMsGecVersion = secMsGecVersion.trim();
+        }
+        if (chromiumMajorVersion != null && !chromiumMajorVersion.trim().isEmpty()) {
+            activeChromiumMajorVersion = chromiumMajorVersion.trim();
+        }
+    }
+
+    private static String currentUserAgent() {
+        String major = activeChromiumMajorVersion;
+        if (CHROMIUM_MAJOR_VERSION.equals(major)) return USER_AGENT;
+        return "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                + "(KHTML, like Gecko) Chrome/" + major
+                + ".0.0.0 Safari/537.36 Edg/" + major + ".0.0.0";
+    }
 
     public static List<Voice> fallbackVoices() {
         List<Voice> voices = new ArrayList<>();
@@ -132,20 +157,20 @@ public final class EdgeTtsClient {
 
     public static List<Voice> fetchVoices() {
         IOException lastError = null;
+        String major = activeChromiumMajorVersion;
         for (int attempt = 0; attempt < 2; attempt++) {
             Request request = new Request.Builder()
                     .url(VOICES_URL)
                     .header("Authority", "speech.platform.bing.com")
                     .header("Sec-CH-UA", "\" Not;A Brand\";v=\"99\", \"Microsoft Edge\";v=\""
-                            + CHROMIUM_MAJOR_VERSION + "\", \"Chromium\";v=\""
-                            + CHROMIUM_MAJOR_VERSION + "\"")
+                            + major + "\", \"Chromium\";v=\"" + major + "\"")
                     .header("Sec-CH-UA-Mobile", "?0")
                     .header("Accept", "*/*")
                     .header("Sec-Fetch-Site", "none")
                     .header("Sec-Fetch-Mode", "cors")
                     .header("Sec-Fetch-Dest", "empty")
                     .header("Accept-Language", "en-US,en;q=0.9")
-                    .header("User-Agent", USER_AGENT)
+                    .header("User-Agent", currentUserAgent())
                     .header("Origin", ORIGIN)
                     .header("Cookie", createMuidCookie())
                     .build();
@@ -245,22 +270,225 @@ public final class EdgeTtsClient {
 
     public SynthesizedAudio synthesize(Context context, String text, Voice voice, float speed,
                                        float pitch) throws IOException {
+        return synthesize(context, text, voice, speed, pitch, DEFAULT_INTER_CHUNK_SILENCE_SECONDS);
+    }
+
+    public SynthesizedAudio synthesize(Context context, String text, Voice voice, float speed,
+                                       float pitch, float silenceSeconds) throws IOException {
         if (text == null || text.trim().isEmpty()) throw new IOException("Enter text to synthesize.");
         if (voice == null) throw new IOException("Select an Edge TTS voice.");
 
-        for (int attempt = 0; attempt < 2; attempt++) {
+        cancelled = false;
+        List<String> chunks = splitIntoUtf8Chunks(text, MAX_CHUNK_ESCAPED_UTF8_BYTES);
+        if (chunks.isEmpty()) {
+            throw new IOException("Enter text with speakable words to synthesize.");
+        }
+
+        ByteArrayOutputStream combinedPcm = new ByteArrayOutputStream();
+        int outputSampleRate = 24000;
+        float clampedSilence = Math.max(0.0f, Math.min(3.0f, silenceSeconds));
+
+        for (int i = 0; i < chunks.size(); i++) {
+            if (cancelled) {
+                throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
+            }
+            String chunk = chunks.get(i);
+            float[] adjustedProsody = applyPunctuationProsody(chunk, speed, pitch);
+            SynthesizedAudio chunkAudio = synthesizeSingleChunkWithRetry(
+                    context, chunk, voice, adjustedProsody[0], adjustedProsody[1]);
+
+            if (i == 0) {
+                outputSampleRate = chunkAudio.sampleRate;
+            }
+            combinedPcm.write(chunkAudio.pcm);
+
+            if (i < chunks.size() - 1) {
+                if (clampedSilence > 0.001f) {
+                    int silenceSamples = Math.round(outputSampleRate * clampedSilence);
+                    if (silenceSamples > 0) {
+                        combinedPcm.write(new byte[silenceSamples * 2]);
+                    }
+                }
+                sleepQuietly(100L);
+            }
+        }
+
+        byte[] finalPcm = combinedPcm.toByteArray();
+        if (finalPcm.length == 0) {
+            throw new IOException("Microsoft Edge TTS returned no audio.");
+        }
+        return new SynthesizedAudio(finalPcm, outputSampleRate);
+    }
+
+    private SynthesizedAudio synthesizeSingleChunkWithRetry(Context context, String chunk, Voice voice,
+                                                            float speed, float pitch) throws IOException {
+        IOException lastError = null;
+        for (int attempt = 0; attempt < 3; attempt++) {
+            if (cancelled) {
+                throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
+            }
             try {
-                byte[] mp3Bytes = collectMp3(text, voice, speed, pitch);
+                byte[] mp3Bytes = collectMp3(chunk, voice, speed, pitch);
                 return decodeMp3(context, mp3Bytes);
             } catch (HttpStatusException error) {
+                lastError = error;
                 if (error.statusCode == 403 && attempt == 0) {
                     adjustClockSkewSeconds(error.serverDate);
                     continue;
                 }
+                if (error.statusCode == 429 && attempt < 2) {
+                    sleepQuietly(400L * (attempt + 1));
+                    continue;
+                }
                 throw error;
+            } catch (IOException error) {
+                lastError = error;
+                if (cancelled || attempt >= 2) throw error;
+                sleepQuietly(250L * (attempt + 1));
             }
         }
-        throw new IOException("Microsoft Edge TTS request could not be completed.");
+        throw lastError != null ? lastError
+                : new IOException("Microsoft Edge TTS request could not be completed.");
+    }
+
+    private static void sleepQuietly(long millis) {
+        try {
+            Thread.sleep(millis);
+        } catch (InterruptedException ignored) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    static List<String> splitIntoUtf8Chunks(String rawText, int maxEscapedUtf8Bytes) {
+        String sanitized = sanitizeControlChars(rawText);
+        List<String> result = new ArrayList<>();
+        if (sanitized.isEmpty()) return result;
+
+        int start = 0;
+        int len = sanitized.length();
+        while (start < len) {
+            while (start < len && Character.isWhitespace(sanitized.charAt(start))) {
+                start++;
+            }
+            if (start >= len) break;
+
+            int end = findMaxFitIndex(sanitized, start, maxEscapedUtf8Bytes);
+            if (end < len) {
+                int bestBreak = findNaturalBreak(sanitized, start, end);
+                if (bestBreak > start) {
+                    end = bestBreak;
+                }
+            }
+
+            String piece = sanitized.substring(start, end).trim();
+            if (!piece.isEmpty() && hasSpeakableContent(piece)) {
+                result.add(piece);
+            }
+            start = end;
+        }
+        return result;
+    }
+
+    private static String sanitizeControlChars(String text) {
+        if (text == null) return "";
+        StringBuilder sb = new StringBuilder(text.length());
+        for (int i = 0; i < text.length(); i++) {
+            char c = text.charAt(i);
+            if (c == '\n' || c == '\r' || c == '\t' || c >= 0x20) {
+                sb.append(c);
+            } else {
+                sb.append(' ');
+            }
+        }
+        return sb.toString().trim();
+    }
+
+    private static int findMaxFitIndex(String text, int start, int maxEscapedBytes) {
+        int bytes = 0;
+        int i = start;
+        int len = text.length();
+        while (i < len) {
+            int cp = text.codePointAt(i);
+            int cpBytes = escapedCodePointUtf8Bytes(cp);
+            if (bytes + cpBytes > maxEscapedBytes) {
+                break;
+            }
+            bytes += cpBytes;
+            i += Character.charCount(cp);
+        }
+        if (i == start && start < len) {
+            i += Character.charCount(text.codePointAt(start));
+        }
+        return i;
+    }
+
+    private static int escapedCodePointUtf8Bytes(int cp) {
+        if (cp == '&') return 5;
+        if (cp == '<' || cp == '>') return 4;
+        if (cp == '"' || cp == '\'') return 6;
+        if (cp <= 0x7F) return 1;
+        if (cp <= 0x7FF) return 2;
+        if (cp <= 0xFFFF) return 3;
+        return 4;
+    }
+
+    private static int findNaturalBreak(String text, int start, int maxEnd) {
+        int minAcceptable = start + ((maxEnd - start) / 3);
+
+        for (int i = maxEnd - 1; i >= minAcceptable; i--) {
+            if (text.charAt(i) == '\n') return i + 1;
+        }
+        for (int i = maxEnd - 1; i >= minAcceptable; i--) {
+            char c = text.charAt(i);
+            if (c == '.' || c == '!' || c == '?' || c == '।'
+                    || c == '。' || c == '！' || c == '？') {
+                int next = i + 1;
+                while (next < maxEnd && (text.charAt(next) == '"' || text.charAt(next) == '\''
+                        || text.charAt(next) == ')' || text.charAt(next) == '”')) {
+                    next++;
+                }
+                if (next == maxEnd || Character.isWhitespace(text.charAt(next))) {
+                    return next;
+                }
+            }
+        }
+        for (int i = maxEnd - 1; i >= minAcceptable; i--) {
+            char c = text.charAt(i);
+            if (c == ',' || c == ';' || c == ':' || c == '،' || c == '、') {
+                return i + 1;
+            }
+        }
+        for (int i = maxEnd - 1; i > start; i--) {
+            if (Character.isWhitespace(text.charAt(i))) {
+                return i + 1;
+            }
+        }
+        return maxEnd;
+    }
+
+    private static boolean hasSpeakableContent(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isLetterOrDigit(text.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static float[] applyPunctuationProsody(String chunk, float baseSpeed, float basePitch) {
+        float speed = baseSpeed;
+        float pitch = basePitch;
+        String trimmed = chunk.trim();
+        if (trimmed.endsWith("...") || trimmed.endsWith("…")) {
+            speed = Math.max(0.5f, baseSpeed - 0.03f);
+            pitch = Math.max(0.5f, basePitch - 0.03f);
+        } else if (trimmed.endsWith("?") || trimmed.endsWith("？")) {
+            pitch = Math.min(2.0f, basePitch + 0.04f);
+        } else if (trimmed.endsWith("!") || trimmed.endsWith("！")) {
+            speed = Math.min(2.0f, baseSpeed + 0.03f);
+            pitch = Math.min(2.0f, basePitch + 0.03f);
+        }
+        return new float[]{speed, pitch};
     }
 
     private byte[] collectMp3(String text, Voice voice, float speed, float pitch)
@@ -277,13 +505,13 @@ public final class EdgeTtsClient {
         String url = WEBSOCKET_URL + "?TrustedClientToken=" + TRUSTED_CLIENT_TOKEN
                 + "&ConnectionId=" + connectionId
                 + "&Sec-MS-GEC=" + createSecMsGecToken(getUnixTimestamp())
-                + "&Sec-MS-GEC-Version=" + SEC_MS_GEC_VERSION;
+                + "&Sec-MS-GEC-Version=" + activeSecMsGecVersion;
         Request request = new Request.Builder()
                 .url(url)
                 .header("Origin", ORIGIN)
                 .header("Pragma", "no-cache")
                 .header("Cache-Control", "no-cache")
-                .header("User-Agent", USER_AGENT)
+                .header("User-Agent", currentUserAgent())
                 .header("Accept-Encoding", "gzip, deflate, br, zstd")
                 .header("Accept-Language", "en-US,en;q=0.9")
                 .header("Cookie", createMuidCookie())
@@ -321,8 +549,7 @@ public final class EdgeTtsClient {
                 if (message.contains("Path:turn.end")) {
                     completed.countDown();
                     webSocket.close(1000, "Synthesis complete");
-                }
-                else if (message.contains("Path:response") && message.contains("403")) {
+                } else if (message.contains("Path:response") && message.contains("403")) {
                     failure.set(new IOException("Microsoft Edge TTS rejected the connection."));
                     completed.countDown();
                     webSocket.cancel();
@@ -351,8 +578,8 @@ public final class EdgeTtsClient {
                 String reason = response != null
                         ? "Microsoft Edge TTS connection failed (HTTP " + response.code() + ")."
                         : "Microsoft Edge TTS connection failed: " + error.getMessage();
-                IOException responseError = response != null && response.code() == 403
-                        ? new HttpStatusException(403, response.header("Date"), reason, error)
+                IOException responseError = response != null
+                        ? new HttpStatusException(response.code(), response.header("Date"), reason, error)
                         : new IOException(reason, error);
                 failure.compareAndSet(null, responseError);
                 completed.countDown();
@@ -392,6 +619,7 @@ public final class EdgeTtsClient {
     }
 
     public void cancel() {
+        cancelled = true;
         WebSocket socket = activeSocket;
         if (socket != null) socket.cancel();
     }
@@ -402,7 +630,7 @@ public final class EdgeTtsClient {
         ticks *= 1e9 / 100;
         String timestamp = String.format(Locale.US, "%.0f", ticks);
         byte[] tokenData = (timestamp + TRUSTED_CLIENT_TOKEN)
-                .getBytes(java.nio.charset.StandardCharsets.US_ASCII);
+                .getBytes(StandardCharsets.US_ASCII);
         byte[] digest = sha256Digest(tokenData);
         long[] cs64 = cs64Digest(tokenData, digest);
         return hexLittleEndian32(cs64[0]) + hexLittleEndian32(cs64[1])
