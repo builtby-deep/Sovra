@@ -291,6 +291,14 @@ public final class EdgeTtsClient {
     }
 
     public SynthesisResult synthesizeStreaming(Context context, String text, Voice voice,
+                                                float speed, float pitch,
+                                                PcmChunkListener listener,
+                                                BooleanSupplier shouldContinue) throws IOException {
+        return synthesizeStreaming(context, text, voice, speed, pitch,
+                DEFAULT_INTER_CHUNK_SILENCE_SECONDS, listener, shouldContinue);
+    }
+
+    public SynthesisResult synthesizeStreaming(Context context, String text, Voice voice,
                                                 float speed, float pitch, float silenceSeconds,
                                                 PcmChunkListener listener) throws IOException {
         return synthesizeStreaming(context, text, voice, speed, pitch, silenceSeconds,
