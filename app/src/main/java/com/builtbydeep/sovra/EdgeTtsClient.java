@@ -203,15 +203,39 @@ public final class EdgeTtsClient {
     }
 
     public static String formatDisplayName(String shortName, String gender) {
+        if (shortName == null) shortName = "";
         int lastHyphen = shortName.lastIndexOf('-');
         String cleanName = shortName.substring(lastHyphen + 1);
-        if (cleanName.endsWith("MultilingualNeural")) {
-            cleanName = cleanName.substring(0,
-                    cleanName.length() - "MultilingualNeural".length()) + " (Multilingual)";
-        } else if (cleanName.endsWith("Neural")) {
+        if (cleanName.endsWith("Neural")) {
             cleanName = cleanName.substring(0, cleanName.length() - "Neural".length());
         }
-        return cleanName + " • " + gender;
+        if (cleanName.endsWith("Multilingual")) {
+            cleanName = cleanName.substring(0, cleanName.length() - "Multilingual".length()).trim()
+                    + " (Multilingual)";
+        } else if (cleanName.endsWith("Expressive")) {
+            cleanName = cleanName.substring(0, cleanName.length() - "Expressive".length()).trim()
+                    + " (Expressive)";
+        }
+        String cleanGender = gender == null || gender.trim().isEmpty() ? "Unknown" : gender.trim();
+        return cleanName + " • " + cleanGender;
+    }
+
+    public static String formatLocaleDisplayName(String localeCode) {
+        if (localeCode == null) return "Unknown";
+        String code = localeCode.trim();
+        if ("hi-IN".equalsIgnoreCase(code)) return "India (Hindi)";
+        if ("en-IN".equalsIgnoreCase(code)) return "India (English)";
+        if ("en-US".equalsIgnoreCase(code)) return "US (English)";
+        if ("en-GB".equalsIgnoreCase(code)) return "UK (English)";
+        if ("ja-JP".equalsIgnoreCase(code)) return "Japan (Japanese)";
+
+        Locale locale = Locale.forLanguageTag(code.replace('_', '-'));
+        String language = locale.getDisplayLanguage(Locale.ENGLISH);
+        String country = locale.getDisplayCountry(Locale.ENGLISH);
+        if ("United States".equals(country)) country = "US";
+        if ("United Kingdom".equals(country)) country = "UK";
+        if (country.isEmpty()) return language.isEmpty() ? code : language;
+        return country + " (" + (language.isEmpty() ? code : language) + ")";
     }
 
     public SynthesizedAudio synthesize(Context context, String text, Voice voice, float speed,

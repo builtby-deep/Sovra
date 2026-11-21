@@ -1520,17 +1520,32 @@ public class GenerateFragmentActivity extends Fragment {
 	}
 
 	private void updateEdgeTtsFilters(boolean isEdgeTts) {
+		binding.textview67.setText(isEdgeTts ? "CLOUD VOICE MODEL" : "ONNX VOICE MODEL");
 		binding.kokoroVoiceFilters.setVisibility(isEdgeTts
 				? android.view.View.VISIBLE : android.view.View.GONE);
 		if (!isEdgeTts) return;
 
 		binding.voiceInfoCard.setVisibility(android.view.View.GONE);
 		binding.opneDropdown.setVisibility(android.view.View.GONE);
-		java.util.List<String> regionLabels = java.util.Arrays.asList(
-				"India (hi-IN)", "India English (en-IN)", "US (en-US)",
-				"UK (en-GB)", "Japan (ja-JP)");
-		java.util.List<String> regionLocales = java.util.Arrays.asList(
+		java.util.ArrayList<String> regionLocales = new java.util.ArrayList<>();
+		java.util.List<String> preferredLocales = java.util.Arrays.asList(
 				"hi-IN", "en-IN", "en-US", "en-GB", "ja-JP");
+		for (String locale : preferredLocales) {
+			if (!regionLocales.contains(locale)
+					&& (edgeVoices == null || getEdgeVoicesForLocale(locale).size() > 0)) {
+				regionLocales.add(locale);
+			}
+		}
+		if (edgeVoices != null) {
+			for (com.builtbydeep.sovra.EdgeTtsClient.Voice voice : edgeVoices) {
+				if (!regionLocales.contains(voice.locale)) regionLocales.add(voice.locale);
+			}
+		}
+		if (regionLocales.isEmpty()) regionLocales.addAll(preferredLocales);
+		java.util.ArrayList<String> regionLabels = new java.util.ArrayList<>();
+		for (String locale : regionLocales) {
+			regionLabels.add(com.builtbydeep.sovra.EdgeTtsClient.formatLocaleDisplayName(locale));
+		}
 		String selectedLocale = sp1.getString("edge_locale", "hi-IN");
 		int selectedRegion = Math.max(0, regionLocales.indexOf(selectedLocale));
 
@@ -1597,8 +1612,10 @@ public class GenerateFragmentActivity extends Fragment {
 			String locale) {
 		java.util.ArrayList<com.builtbydeep.sovra.EdgeTtsClient.Voice> matches =
 				new java.util.ArrayList<>();
+		java.util.LinkedHashSet<String> seenNames = new java.util.LinkedHashSet<>();
 		for (com.builtbydeep.sovra.EdgeTtsClient.Voice voice : edgeVoices) {
-			if (locale.equalsIgnoreCase(voice.locale)) matches.add(voice);
+			String key = voice.name.toLowerCase(java.util.Locale.ROOT);
+			if (locale.equalsIgnoreCase(voice.locale) && seenNames.add(key)) matches.add(voice);
 		}
 		return matches;
 	}
