@@ -311,6 +311,8 @@ public class ModelsFragmentActivity extends Fragment {
 				boolean isKokoro = item.containsKey("type") && item.get("type").toString().equalsIgnoreCase("kokoro");
 				boolean isSupertonic = com.builtbydeep.sovra.SupertonicModelFiles.isSupertonicModel(item);
 				boolean isPiperArchive = com.builtbydeep.sovra.PiperModelCatalog.isCatalogModel(item);
+				boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
+						.equalsIgnoreCase(String.valueOf(item.get("type")));
 				
 				String modelName = "Unknown Model";
 				if (item.containsKey("name") && item.get("name") != null && !item.get("name").toString().trim().isEmpty()) modelName = item.get("name").toString();
@@ -327,7 +329,7 @@ public class ModelsFragmentActivity extends Fragment {
 				String currentOnnx = item.containsKey("onnx_path") && item.get("onnx_path") != null ? item.get("onnx_path").toString() : "";
 				String currentModelDir = item.containsKey("model_dir") && item.get("model_dir") != null ? item.get("model_dir").toString() : "";
 				
-				boolean isDownloaded = isSupertonic ? com.builtbydeep.sovra.SupertonicModelFiles.isInstalled(new java.io.File(currentModelDir)) : isKokoro ? com.builtbydeep.sovra.KokoroModelFiles.isInstalled(new java.io.File(currentModelDir)) : isPiperArchive ? com.builtbydeep.sovra.PiperModelCatalog.isInstalled(new java.io.File(currentModelDir)) : !currentOnnx.isEmpty();
+				boolean isDownloaded = isEdgeTts || (isSupertonic ? com.builtbydeep.sovra.SupertonicModelFiles.isInstalled(new java.io.File(currentModelDir)) : isKokoro ? com.builtbydeep.sovra.KokoroModelFiles.isInstalled(new java.io.File(currentModelDir)) : isPiperArchive ? com.builtbydeep.sovra.PiperModelCatalog.isInstalled(new java.io.File(currentModelDir)) : !currentOnnx.isEmpty());
 				boolean isDownloading = item.containsKey("is_downloading") && item.get("is_downloading").toString().equals("true");
 				int progress = item.containsKey("download_progress") ? Integer.parseInt(item.get("download_progress").toString()) : 0;
 				
@@ -335,7 +337,9 @@ public class ModelsFragmentActivity extends Fragment {
 				
 				// FIXED LOGIC: Simplified check for Active Model (Green Tick & Remove Button)
 				boolean isActiveModel = false;
-				if (isSupertonic) {
+				if (isEdgeTts) {
+					isActiveModel = isEdgeTts && activeModelType.equalsIgnoreCase(com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE);
+				} else if (isSupertonic) {
 					isActiveModel = !currentModelDir.isEmpty() && currentModelDir.equals(activeSupertonicDir) && activeModelType.equalsIgnoreCase(com.builtbydeep.sovra.SupertonicModelFiles.MODEL_TYPE);
 				} else {
 					isActiveModel = !currentOnnx.isEmpty() && currentOnnx.equals(activeOnnx);
@@ -345,17 +349,37 @@ public class ModelsFragmentActivity extends Fragment {
 				com.google.android.material.card.MaterialCardView btnUseVoice = v.findViewById(R.id.btn_use_voice); com.google.android.material.card.MaterialCardView btnDelete = v.findViewById(R.id.btn_delete);
 				android.widget.TextView txtModelSub = v.findViewById(R.id.txt_model_sub); android.widget.ProgressBar progressBar = v.findViewById(R.id.progress_download);
 				
-				if (isDownloaded) {
+				if (isEdgeTts) {
+					((android.widget.TextView) v.findViewById(R.id.onnx_tv)).setText("CLOUD");
+					((android.widget.TextView) v.findViewById(R.id.json_tv)).setText("ONLINE");
+					((com.google.android.material.card.MaterialCardView) v.findViewById(R.id.cardview7))
+							.setCardBackgroundColor(android.graphics.Color.parseColor("#252A40"));
+					((com.google.android.material.card.MaterialCardView) v.findViewById(R.id.cardview8))
+							.setCardBackgroundColor(android.graphics.Color.parseColor("#1C3D33"));
+					progressBar.setVisibility(android.view.View.GONE);
+					btnDelete.setVisibility(android.view.View.GONE);
+					txtModelSub.setText("Multilingual • 300+ speakers • 0 MB");
+					selectIv.setVisibility(isActiveModel ? android.view.View.VISIBLE : android.view.View.GONE);
+					useRemoveTv.setText("Use Voice");
+					btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor(
+							isActiveModel ? "#1C3D33" : "#1D61FF"));
+				} else if (isDownloaded) {
 					progressBar.setVisibility(android.view.View.GONE); btnDelete.setVisibility(android.view.View.VISIBLE);
+					((android.widget.TextView) v.findViewById(R.id.onnx_tv)).setText("ONNX");
+					((android.widget.TextView) v.findViewById(R.id.json_tv)).setText("Token");
 					txtModelSub.setText(isSupertonic ? "31 languages • 10 speakers • " + size : lang + " • " + gender + " • " + size);
 					if (isActiveModel) { selectIv.setVisibility(android.view.View.VISIBLE); useRemoveTv.setText("Remove"); btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor("#FF4B4B")); }
 					else { selectIv.setVisibility(android.view.View.GONE); useRemoveTv.setText("Use Voice"); btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor("#1D61FF")); }
 				} else if (isDownloading) {
 					progressBar.setVisibility(android.view.View.VISIBLE); btnDelete.setVisibility(android.view.View.GONE);
+					((android.widget.TextView) v.findViewById(R.id.onnx_tv)).setText("ONNX");
+					((android.widget.TextView) v.findViewById(R.id.json_tv)).setText("Token");
 					progressBar.setIndeterminate(false); progressBar.setProgress(progress); txtModelSub.setText(progress + "%");
 					selectIv.setVisibility(android.view.View.GONE); useRemoveTv.setText("Cancel"); btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor("#718096"));
 				} else {
 					progressBar.setVisibility(android.view.View.GONE); btnDelete.setVisibility(android.view.View.GONE);
+					((android.widget.TextView) v.findViewById(R.id.onnx_tv)).setText("ONNX");
+					((android.widget.TextView) v.findViewById(R.id.json_tv)).setText("Token");
 					txtModelSub.setText(lang + " • " + gender + " • " + size); selectIv.setVisibility(android.view.View.GONE); useRemoveTv.setText("Download"); btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor("#1D61FF"));
 				}
 				
@@ -437,6 +461,24 @@ public class ModelsFragmentActivity extends Fragment {
 					if (com.builtbydeep.sovra.KokoroEngine.getInstance().isBusy() || com.builtbydeep.sovra.VoiceEngine.getInstance().isBusy() || com.builtbydeep.sovra.SupertonicEngine.getInstance().isBusy()) {
 						android.widget.Toast.makeText(context, "Please wait, audio generation in progress...", android.widget.Toast.LENGTH_SHORT).show();
 						try { com.builtbydeep.sovra.KokoroEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.VoiceEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel(); } catch (Throwable ignored) {} return;
+					}
+					if (isEdgeTts) {
+						if (!isActiveModel) {
+							sp1.edit().putString("active_model", com.builtbydeep.sovra.EdgeTtsClient.MODEL_ID)
+									.putString("active_tokens", "")
+									.putString("active_model_name", finalModelName)
+									.putString("active_model_type", com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE)
+									.putString("active_voices_bin", "").putString("active_language", "multilingual")
+									.putString("active_supertonic_dir", "").putInt("active_speaker_count", 1)
+									.apply();
+							if (sp1.getString("edge_voice", "").isEmpty()) {
+								sp1.edit().putString("edge_voice", "hi-IN-SwaraNeural")
+										.putString("edge_locale", "hi-IN").apply();
+							}
+						}
+						if (binding.recyclerviewModels.getAdapter() != null)
+							binding.recyclerviewModels.getAdapter().notifyDataSetChanged();
+						return;
 					}
 					if (isDownloading) {
 						if (isSupertonic) { if (supertonicDownloadTask != null) supertonicDownloadTask.cancel(); supertonicDownloadTask = null; } 
@@ -698,7 +740,7 @@ public class ModelsFragmentActivity extends Fragment {
 		if (masterList == null) masterList = new java.util.ArrayList<>(); String currentSort = sp1.getString("sort_preference", "all_models"); String currentLanguage = sp1.getString("language_filter", "All Languages");
 		modelList.clear();
 		for (java.util.HashMap<String, Object> item : masterList) {
-			String onnxPath = item.containsKey("onnx_path") && item.get("onnx_path") != null ? item.get("onnx_path").toString() : ""; boolean isInstalled = !onnxPath.isEmpty();
+			String onnxPath = item.containsKey("onnx_path") && item.get("onnx_path") != null ? item.get("onnx_path").toString() : ""; boolean isInstalled = !onnxPath.isEmpty() || com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE.equalsIgnoreCase(String.valueOf(item.get("type")));
 			String itemLang = item.containsKey("language") && item.get("language") != null ? item.get("language").toString() : ""; boolean isSupertonicModel = item.containsKey("type") && item.get("type").toString().equalsIgnoreCase(com.builtbydeep.sovra.SupertonicModelFiles.MODEL_TYPE);
 			boolean languageMatch = currentLanguage.equals("All Languages") || currentLanguage.equals(itemLang) || isSupertonicModel;
 			if (languageMatch) {
@@ -763,12 +805,17 @@ public class ModelsFragmentActivity extends Fragment {
 	private void _rebuildCatalogOrder() {
 		java.util.ArrayList<HashMap<String, Object>> existingModels = new java.util.ArrayList<>(modelList); java.util.ArrayList<HashMap<String, Object>> orderedModels = new java.util.ArrayList<>();
 		java.util.HashSet<String> builtInUrls = new java.util.HashSet<>(); java.util.List<HashMap<String, Object>> builtInEntries = com.builtbydeep.sovra.VoiceModelCatalog.createBuiltInEntries();
-		for (int i = 0; i < 2; i++) {
+		HashMap<String, Object> edgeEntry = builtInEntries.get(0);
+		String edgeUrl = String.valueOf(edgeEntry.get("model_url"));
+		builtInUrls.add(edgeUrl);
+		HashMap<String, Object> existingEdge = _findModelByUrl(existingModels, edgeUrl);
+		orderedModels.add(_resetCatalogEntry(edgeEntry, existingEdge));
+		for (int i = 1; i < 3; i++) {
 			HashMap<String, Object> canonical = builtInEntries.get(i); String url = String.valueOf(canonical.get("model_url")); builtInUrls.add(url); HashMap<String, Object> existing = null;
-			if (i == 1) { for (HashMap<String, Object> candidate : existingModels) { if (com.builtbydeep.sovra.SupertonicModelFiles.isSupertonicModel(candidate)) { existing = candidate; break; } } } else existing = _findModelByUrl(existingModels, url);
+			if (i == 2) { for (HashMap<String, Object> candidate : existingModels) { if (com.builtbydeep.sovra.SupertonicModelFiles.isSupertonicModel(candidate)) { existing = candidate; break; } } } else existing = _findModelByUrl(existingModels, url);
 			orderedModels.add(existing != null ? existing : canonical);
 		}
-		for (int i = 2; i < builtInEntries.size(); i++) {
+		for (int i = 3; i < builtInEntries.size(); i++) {
 			HashMap<String, Object> canonical = builtInEntries.get(i); String url = String.valueOf(canonical.get("model_url")); builtInUrls.add(url);
 			HashMap<String, Object> existingEntry = _findModelByUrl(existingModels, url); HashMap<String, Object> entry = _resetCatalogEntry(canonical, existingEntry);
 			java.io.File modelDir = com.builtbydeep.sovra.PiperModelCatalog.getModelDirectory(getContext(), entry); entry.put("model_dir", modelDir.getAbsolutePath());

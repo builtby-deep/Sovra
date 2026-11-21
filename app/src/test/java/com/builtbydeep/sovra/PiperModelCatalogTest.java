@@ -26,9 +26,10 @@ public class PiperModelCatalogTest {
     public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
     @Test
-    public void builtInCatalogContainsExactlyElevenEntriesInRequestedOrder() {
+    public void builtInCatalogContainsEdgeTtsBeforeTheOfflineModels() {
         List<HashMap<String, Object>> entries = VoiceModelCatalog.createBuiltInEntries();
         String[] names = {
+                "Microsoft Edge TTS",
                 "Kokoro",
                 "Supertonic V3",
                 "Libritts-high",
@@ -46,6 +47,8 @@ public class PiperModelCatalogTest {
         for (int i = 0; i < names.length; i++) {
             assertEquals(names[i], entries.get(i).get("name"));
         }
+        assertEquals(EdgeTtsClient.MODEL_TYPE, entries.get(0).get("type"));
+        assertEquals("0 MB", entries.get(0).get("size"));
     }
 
     @Test

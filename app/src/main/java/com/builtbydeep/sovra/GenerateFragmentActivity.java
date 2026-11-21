@@ -95,6 +95,12 @@ public class GenerateFragmentActivity extends Fragment {
 	private java.util.ArrayList<com.builtbydeep.sovra.KokoroVoiceHelper.VoiceItem> kokoroFilteredVoices =
 			new java.util.ArrayList<>();
 	private boolean suppressKokoroFilterCallbacks;
+	private final com.builtbydeep.sovra.EdgeTtsClient edgeTtsClient =
+			new com.builtbydeep.sovra.EdgeTtsClient();
+	private volatile java.util.List<com.builtbydeep.sovra.EdgeTtsClient.Voice> edgeVoices =
+			com.builtbydeep.sovra.EdgeTtsClient.fallbackVoices();
+	private boolean suppressEdgeFilterCallbacks;
+	private boolean edgeVoicesFetched;
 	android.media.AudioManager audioManager;
 	android.media.AudioManager.OnAudioFocusChangeListener focusListener;
 	android.media.AudioFocusRequest focusRequest;
@@ -200,6 +206,8 @@ public class GenerateFragmentActivity extends Fragment {
 				String currentTokens    = sp1.getString("active_tokens", "");
 				String currentModelType = sp1.getString("active_model_type", "vits");
 				String currentVoicesBin = sp1.getString("active_voices_bin", "");
+				boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
+						.equalsIgnoreCase(currentModelType);
 				
 				boolean isPunctOn   = sp3.getBoolean("smart_punct", false);
 				boolean isEmotionOn = sp3.getBoolean("emotion_tags", false);
@@ -211,10 +219,20 @@ public class GenerateFragmentActivity extends Fragment {
 				int currentKokoroVoiceId = sp1.getInt("active_kokoro_speaker", 31);
 				final int currentPiperVoiceId = sp1.getInt("active_piper_speaker", 0); 
 				
-				if (currentOnnxModel.isEmpty() || currentTokens.isEmpty()) {
+				if (!isEdgeTts && (currentOnnxModel.isEmpty() || currentTokens.isEmpty())) {
 					if (getView() != null) {
 						com.google.android.material.snackbar.Snackbar.make(getView(), "Please select a Voice Model from Models tab.", com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
 						.setBackgroundTint(android.graphics.Color.parseColor("#EF4444")).setTextColor(android.graphics.Color.WHITE).show();
+					}
+					return;
+				}
+				if (isEdgeTts && !isNetworkAvailable()) {
+					if (getView() != null) {
+						com.google.android.material.snackbar.Snackbar.make(getView(),
+								"Microsoft Edge TTS needs an internet connection.",
+								com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
+								.setBackgroundTint(android.graphics.Color.parseColor("#EF4444"))
+								.setTextColor(android.graphics.Color.WHITE).show();
 					}
 					return;
 				}
@@ -222,6 +240,8 @@ public class GenerateFragmentActivity extends Fragment {
 				boolean isVoiceParamChanged = false;
 				if (lastParams == null ||
 				!currentOnnxModel.equals(lastParams.onnxModel) ||
+				isEdgeTts && !sp1.getString("edge_voice", "hi-IN-SwaraNeural")
+						.equals(sp3.getString("last_edge_voice", "")) ||
 				currentKokoroVoiceId != lastParams.kokoroVoiceId ||
 				currentPiperVoiceId != sp3.getInt("last_piper_speaker", -1) || 
 				currentSpeed != lastParams.speed ||
@@ -263,6 +283,8 @@ public class GenerateFragmentActivity extends Fragment {
 					inputText, currentOnnxModel, currentTokens, currentModelType, currentVoicesBin,
 					currentKokoroVoiceId, currentSpeed, currentPitch, isPunctOn, isEmotionOn
 					);
+					final String selectedEdgeVoice = sp1.getString("edge_voice", "hi-IN-SwaraNeural");
+					final String selectedEdgeLocale = sp1.getString("edge_locale", "hi-IN");
 					final String selectedSupertonicLanguage = com.builtbydeep.sovra.SupertonicEngine.normalizeLanguage(
 							sp1.getString("active_language", "en"));
 					final int selectedSupertonicSteps = Math.max(
@@ -286,6 +308,7 @@ public class GenerateFragmentActivity extends Fragment {
 					final boolean isKokoro = _isKokoroModel(params.modelType);
 					final boolean isSupertonic = params.modelType.equals("supertonic");
 					final boolean isMmsModel = params.modelType.equals("mms");
+					final android.content.Context generationContext = requireContext().getApplicationContext();
 					
 					java.util.List<String> sentences = new java.util.ArrayList<>();
 					String[] parts = params.text.split("(?<=[.!?\\n\u0964])\\s+");
@@ -318,7 +341,23 @@ public class GenerateFragmentActivity extends Fragment {
 							noiseW = 0.90f;
 						}
 						
-						if (isKokoro) {
+						if (isEdgeTts) {
+							try {
+								com.builtbydeep.sovra.EdgeTtsClient.Voice voice =
+										new com.builtbydeep.sovra.EdgeTtsClient.Voice(
+												selectedEdgeVoice, selectedEdgeLocale,
+												sp1.getString("edge_voice_gender", "Unknown"));
+								com.builtbydeep.sovra.EdgeTtsClient.SynthesizedAudio audio =
+										edgeTtsClient.synthesize(generationContext, params.text, voice,
+												params.speed, params.pitch);
+								generatedSampleRate = audio.sampleRate;
+								pcmStream.write(audio.pcm);
+								loadResult = "Success";
+							} catch (Exception error) {
+								loadResult = error.getMessage() == null
+										? "Microsoft Edge TTS synthesis failed." : error.getMessage();
+							}
+						} else if (isKokoro) {
 							com.builtbydeep.sovra.KokoroEngine.getInstance().setActiveSpeakerId(params.kokoroVoiceId);
 							loadResult = com.builtbydeep.sovra.KokoroEngine.getInstance().loadModel(
 									getContext(), params.onnxModel, params.tokens, params.voicesBin);
@@ -340,7 +379,7 @@ public class GenerateFragmentActivity extends Fragment {
 							if ("Success".equals(loadResult)) generatedSampleRate = com.builtbydeep.sovra.VoiceEngine.getInstance().getSampleRate();
 						}
 						
-						if (generatedSampleRate <= 0) {
+						if (!isEdgeTts && generatedSampleRate <= 0) {
 							if (isKokoro) generatedSampleRate = 24000;
 							else if (isSupertonic) generatedSampleRate = 44100;
 							else generatedSampleRate = 22050;
@@ -350,7 +389,7 @@ public class GenerateFragmentActivity extends Fragment {
 						final int[] handoffHeadPos = {0};
 						final int[] totalFramesWritten = {0};
 						
-						if ("Success".equals(loadResult)) {
+						if ("Success".equals(loadResult) && !isEdgeTts) {
 							int minBufferSize = android.media.AudioTrack.getMinBufferSize(generatedSampleRate, 
 							android.media.AudioFormat.CHANNEL_OUT_MONO, 
 							android.media.AudioFormat.ENCODING_PCM_16BIT);
@@ -549,8 +588,8 @@ public class GenerateFragmentActivity extends Fragment {
 										durIntent.putExtra("isLibraryMode", false);
 										durIntent.putExtra("duration", (long)(totalSeconds * 1000));
 										
-										if (finalHead < (totalFrames - 5000) && finalHead > 0) {
-											audioTrack.setPlaybackHeadPosition(finalHead);
+										if (isEdgeTts || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
+											audioTrack.setPlaybackHeadPosition(isEdgeTts ? 0 : finalHead);
 											audioTrack.play();
 											
 											binding.imageview52.setImageResource(R.drawable.icon_pause_circle);
@@ -562,7 +601,7 @@ public class GenerateFragmentActivity extends Fragment {
 												getContext().startService(durIntent);
 											}
 											
-											float progressFrac = (float) finalHead / totalFrames;
+											float progressFrac = isEdgeTts ? 0f : (float) finalHead / totalFrames;
 											float startX = progressFrac * w;
 											binding.playheadLine.setTranslationX(startX);
 											
@@ -651,9 +690,13 @@ public class GenerateFragmentActivity extends Fragment {
 									com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext()).hideNotification();
 									
 									if (getView() != null) {
-										String userFriendlyMessage = (finalLoadResult != null && (finalLoadResult.contains("missing") || finalLoadResult.contains("empty")))
-										? "Please select a valid voice model to continue."
-										: "Unable to generate voice at the moment. Please try again.";
+										String userFriendlyMessage = isEdgeTts
+										? (finalLoadResult == null || finalLoadResult.isEmpty()
+												? "Microsoft Edge TTS could not generate audio."
+												: finalLoadResult)
+										: (finalLoadResult != null && (finalLoadResult.contains("missing") || finalLoadResult.contains("empty")))
+												? "Please select a valid voice model to continue."
+												: "Unable to generate voice at the moment. Please try again.";
 										
 										com.google.android.material.snackbar.Snackbar.make(getView(), userFriendlyMessage, com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
 										.setBackgroundTint(android.graphics.Color.parseColor("#EF4444")).setTextColor(android.graphics.Color.WHITE).show();
@@ -662,6 +705,9 @@ public class GenerateFragmentActivity extends Fragment {
 							});
 						}
 					}).start();
+					if (isEdgeTts) {
+						sp3.edit().putString("last_edge_voice", selectedEdgeVoice).apply();
+					}
 				}
 				
 			}
@@ -857,6 +903,8 @@ public class GenerateFragmentActivity extends Fragment {
 		int activeSpeakerCount = sp1.getInt("active_speaker_count", 1);
 		boolean isKokoro = _isKokoroModel(activeModelType);
 		boolean isSupertonic = activeModelType.equalsIgnoreCase("supertonic");
+		boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
+				.equalsIgnoreCase(activeModelType);
 		if (activeModel.isEmpty()) {
 			binding.voiceNameTv.setText("No Model Selected");
 			binding.voiceNameTv.setTextColor(android.graphics.Color.parseColor("#EF4444"));
@@ -867,7 +915,11 @@ public class GenerateFragmentActivity extends Fragment {
 			} else {
 				binding.opneDropdown.setVisibility(android.view.View.GONE);
 			}
-			if (isSupertonic) {
+			if (isEdgeTts) {
+				String voice = sp1.getString("edge_voice", "hi-IN-SwaraNeural");
+				String gender = sp1.getString("edge_voice_gender", "Female");
+				binding.voiceNameTv.setText(voice + " • " + gender);
+			} else if (isSupertonic) {
 				int speakerId = sp1.getInt("active_supertonic_speaker", 0);
 				com.builtbydeep.sovra.SupertonicEngine.getInstance().setActiveSpeakerId(speakerId);
 				binding.voiceNameTv.setText(getSupertonicVoiceProfile(speakerId));
@@ -1466,6 +1518,125 @@ public class GenerateFragmentActivity extends Fragment {
 		if (previousSpeakerId != voice.speakerId) _forceResetToIdle();
 	}
 
+	private void updateEdgeTtsFilters(boolean isEdgeTts) {
+		binding.kokoroVoiceFilters.setVisibility(isEdgeTts
+				? android.view.View.VISIBLE : android.view.View.GONE);
+		if (!isEdgeTts) return;
+
+		binding.voiceInfoCard.setVisibility(android.view.View.GONE);
+		binding.opneDropdown.setVisibility(android.view.View.GONE);
+		java.util.List<String> regionLabels = java.util.Arrays.asList(
+				"India (hi-IN)", "India English (en-IN)", "US (en-US)",
+				"UK (en-GB)", "Japan (ja-JP)");
+		java.util.List<String> regionLocales = java.util.Arrays.asList(
+				"hi-IN", "en-IN", "en-US", "en-GB", "ja-JP");
+		String selectedLocale = sp1.getString("edge_locale", "hi-IN");
+		int selectedRegion = Math.max(0, regionLocales.indexOf(selectedLocale));
+
+		suppressEdgeFilterCallbacks = true;
+		binding.kokoroRegionSpinner.setOnItemSelectedListener(null);
+		binding.kokoroVoiceSpinner.setOnItemSelectedListener(null);
+		binding.kokoroRegionSpinner.setAdapter(createKokoroSpinnerAdapter(regionLabels));
+		binding.kokoroRegionSpinner.setSelection(selectedRegion, false);
+		bindEdgeVoices(regionLocales.get(selectedRegion),
+				sp1.getString("edge_voice", "hi-IN-SwaraNeural"));
+		suppressEdgeFilterCallbacks = false;
+
+		binding.kokoroRegionSpinner.setOnItemSelectedListener(
+				new android.widget.AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view,
+					int position, long id) {
+				if (suppressEdgeFilterCallbacks || position < 0 || position >= regionLocales.size()) return;
+				bindEdgeVoices(regionLocales.get(position), sp1.getString("edge_voice", ""));
+			}
+
+			@Override
+			public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+		});
+		binding.kokoroVoiceSpinner.setOnItemSelectedListener(
+				new android.widget.AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view,
+					int position, long id) {
+				if (suppressEdgeFilterCallbacks || position < 0) return;
+				java.util.List<com.builtbydeep.sovra.EdgeTtsClient.Voice> visible =
+						getEdgeVoicesForLocale(sp1.getString("edge_locale", "hi-IN"));
+				if (position >= visible.size()) return;
+				com.builtbydeep.sovra.EdgeTtsClient.Voice voice = visible.get(position);
+				String previousVoice = sp1.getString("edge_voice", "");
+				sp1.edit().putString("edge_voice", voice.name)
+						.putString("edge_locale", voice.locale)
+						.putString("edge_voice_gender", voice.gender).apply();
+				binding.voiceNameTv.setText(voice.displayName());
+				if (!previousVoice.equals(voice.name)) _forceResetToIdle();
+			}
+
+			@Override
+			public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+		});
+
+		if (edgeVoicesFetched) return;
+		edgeVoicesFetched = true;
+		new Thread(() -> {
+			java.util.List<com.builtbydeep.sovra.EdgeTtsClient.Voice> fetched =
+					com.builtbydeep.sovra.EdgeTtsClient.fetchVoices();
+			edgeVoices = fetched;
+			if (getActivity() == null) return;
+			getActivity().runOnUiThread(() -> {
+				if (!isAdded() || binding == null || !com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
+						.equalsIgnoreCase(sp1.getString("active_model_type", ""))) return;
+				String locale = sp1.getString("edge_locale", "hi-IN");
+				bindEdgeVoices(locale, sp1.getString("edge_voice", ""));
+			});
+		}, "edge-tts-voices").start();
+	}
+
+	private java.util.List<com.builtbydeep.sovra.EdgeTtsClient.Voice> getEdgeVoicesForLocale(
+			String locale) {
+		java.util.ArrayList<com.builtbydeep.sovra.EdgeTtsClient.Voice> matches =
+				new java.util.ArrayList<>();
+		for (com.builtbydeep.sovra.EdgeTtsClient.Voice voice : edgeVoices) {
+			if (locale.equalsIgnoreCase(voice.locale)) matches.add(voice);
+		}
+		return matches;
+	}
+
+	private void bindEdgeVoices(String locale, String preferredVoice) {
+		java.util.List<com.builtbydeep.sovra.EdgeTtsClient.Voice> voices =
+				getEdgeVoicesForLocale(locale);
+		if (voices.isEmpty()) return;
+		java.util.ArrayList<String> labels = new java.util.ArrayList<>();
+		int selectedPosition = 0;
+		for (int i = 0; i < voices.size(); i++) {
+			com.builtbydeep.sovra.EdgeTtsClient.Voice voice = voices.get(i);
+			labels.add(voice.displayName());
+			if (voice.name.equals(preferredVoice)) selectedPosition = i;
+		}
+		if (!voices.get(selectedPosition).name.equals(preferredVoice)) {
+			com.builtbydeep.sovra.EdgeTtsClient.Voice selected = voices.get(selectedPosition);
+			sp1.edit().putString("edge_voice", selected.name)
+					.putString("edge_locale", selected.locale)
+					.putString("edge_voice_gender", selected.gender).apply();
+			binding.voiceNameTv.setText(selected.displayName());
+		}
+		suppressEdgeFilterCallbacks = true;
+		binding.kokoroVoiceSpinner.setAdapter(createKokoroSpinnerAdapter(labels));
+		binding.kokoroVoiceSpinner.setSelection(selectedPosition, false);
+		suppressEdgeFilterCallbacks = false;
+	}
+
+	private boolean isNetworkAvailable() {
+		android.net.ConnectivityManager manager = (android.net.ConnectivityManager)
+				requireContext().getSystemService(android.content.Context.CONNECTIVITY_SERVICE);
+		if (manager == null) return false;
+		android.net.Network network = manager.getActiveNetwork();
+		android.net.NetworkCapabilities capabilities = network == null
+				? null : manager.getNetworkCapabilities(network);
+		return capabilities != null && capabilities.hasCapability(
+				android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET);
+	}
+
 	@Override
 	public void onResume() {
 		super.onResume();
@@ -1474,6 +1645,8 @@ public class GenerateFragmentActivity extends Fragment {
 		int activeSpeakerCount = sp1.getInt("active_speaker_count", 1);
 		boolean isKokoro = _isKokoroModel(activeModelType);
 		boolean isSupertonic = activeModelType.equalsIgnoreCase("supertonic");
+		boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
+				.equalsIgnoreCase(activeModelType);
 		if (activeModel.isEmpty()) {
 			binding.voiceNameTv.setText("No Model Selected");
 			binding.voiceNameTv.setTextColor(android.graphics.Color.parseColor("#EF4444"));
@@ -1484,7 +1657,10 @@ public class GenerateFragmentActivity extends Fragment {
 			} else {
 				binding.opneDropdown.setVisibility(android.view.View.GONE);
 			}
-			if (isSupertonic) {
+			if (isEdgeTts) {
+				binding.voiceNameTv.setText(sp1.getString("edge_voice", "hi-IN-SwaraNeural")
+						+ " • " + sp1.getString("edge_voice_gender", "Female"));
+			} else if (isSupertonic) {
 				int speakerId = sp1.getInt("active_supertonic_speaker", 0);
 				com.builtbydeep.sovra.SupertonicEngine.getInstance().setActiveSpeakerId(speakerId);
 				binding.voiceNameTv.setText(getSupertonicVoiceProfile(speakerId));
@@ -1566,6 +1742,7 @@ public class GenerateFragmentActivity extends Fragment {
 		}
 		_updateSupertonicLanguageSelector();
 		updateKokoroVoiceFilters(isKokoro, sp1.getInt("active_kokoro_speaker", 31));
+		updateEdgeTtsFilters(isEdgeTts);
 		String currentSettingsState = sp3.getFloat("voice_speed", 1.0f) + "_" +
 		sp3.getFloat("voice_pitch", 1.0f) + "_" +
 		sp3.getFloat("silence_scale", 0.2f) + "_" +
@@ -1716,6 +1893,7 @@ public class GenerateFragmentActivity extends Fragment {
 			com.builtbydeep.sovra.VoiceEngine.getInstance().cancel();
 			com.builtbydeep.sovra.KokoroEngine.getInstance().cancel();
 			com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel();
+			edgeTtsClient.cancel();
 		} catch (Throwable ignored) {}
 		
 		currentGenerationId++; 
@@ -1860,6 +2038,7 @@ public class GenerateFragmentActivity extends Fragment {
 				try { com.builtbydeep.sovra.VoiceEngine.getInstance().cancel(); } catch (Exception ignored) {}
 				try { com.builtbydeep.sovra.KokoroEngine.getInstance().cancel(); } catch (Exception ignored) {}
 				try { com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel(); } catch (Exception ignored) {}
+				edgeTtsClient.cancel();
 			}).start();
 			
 			// LiveStream track (Instant Silence)
