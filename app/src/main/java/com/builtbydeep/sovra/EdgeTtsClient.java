@@ -204,8 +204,13 @@ public final class EdgeTtsClient {
 
     public static String formatDisplayName(String shortName, String gender) {
         if (shortName == null) shortName = "";
-        int lastHyphen = shortName.lastIndexOf('-');
-        String cleanName = shortName.substring(lastHyphen + 1);
+        String cleanName = shortName.trim();
+        int lastComma = cleanName.lastIndexOf(',');
+        if (cleanName.endsWith(")") && lastComma != -1 && lastComma + 1 < cleanName.length() - 1) {
+            cleanName = cleanName.substring(lastComma + 1, cleanName.length() - 1).trim();
+        } else if (cleanName.contains("-")) {
+            cleanName = cleanName.substring(cleanName.lastIndexOf('-') + 1).trim();
+        }
         if (cleanName.endsWith("Neural")) {
             cleanName = cleanName.substring(0, cleanName.length() - "Neural".length());
         }
