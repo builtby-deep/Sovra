@@ -1,22 +1,43 @@
 package com.builtbydeep.sovra;
 
 import android.content.Context;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 
 public class AudioHelper {
 
     // ✅ FIX: sampleRate parameter add kiya — Kokoro=24000, Piper/Vits=22050
     public static String saveWavFile(byte[] pcmData, String fileName, int sampleRate, Context context) {
+        if (pcmData == null) return "";
+        return saveWavFile(new java.io.ByteArrayInputStream(pcmData), pcmData.length,
+                fileName, sampleRate, context);
+    }
+
+    public static String saveWavFile(File pcmFile, String fileName, int sampleRate, Context context) {
+        if (pcmFile == null || !pcmFile.isFile()) return "";
+        try (BufferedInputStream input =
+                     new BufferedInputStream(new FileInputStream(pcmFile))) {
+            return saveWavFile(input, pcmFile.length(), fileName, sampleRate, context);
+        } catch (Exception e) {
+            return "";
+        }
+    }
+
+    private static String saveWavFile(java.io.InputStream pcmInput, long audioLength,
+                                      String fileName, int sampleRate, Context context) {
         try {
+            if (audioLength > 0xffffffffL - 36) return "";
             File musicDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
                     android.os.Environment.DIRECTORY_MUSIC), "VoxEngine");
             if (!musicDir.exists()) musicDir.mkdirs();
 
             File wavFile = new File(musicDir, fileName);
 
-            try (FileOutputStream fos = new FileOutputStream(wavFile)) {
-                long totalAudioLen = pcmData.length;
+            try (BufferedOutputStream fos = new BufferedOutputStream(new FileOutputStream(wavFile))) {
+                long totalAudioLen = audioLength;
                 long totalDataLen  = totalAudioLen + 36;
                 long longSampleRate = sampleRate; // ✅ Ab hardcoded nahi, jo pass hoga wahi jayega
                 int  channels      = 1;
@@ -50,7 +71,17 @@ public class AudioHelper {
                 header[43] = (byte) ((totalAudioLen >> 24) & 0xff);
 
                 fos.write(header, 0, 44);
-                fos.write(pcmData);
+                byte[] buffer = new byte[8192];
+                int bytesRead;
+                long bytesCopied = 0;
+                while ((bytesRead = pcmInput.read(buffer)) != -1) {
+                    fos.write(buffer, 0, bytesRead);
+                    bytesCopied += bytesRead;
+                }
+                if (bytesCopied != audioLength) {
+                    wavFile.delete();
+                    return "";
+                }
             }
 
             return wavFile.getAbsolutePath();

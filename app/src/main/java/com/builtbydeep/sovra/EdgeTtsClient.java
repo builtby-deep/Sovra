@@ -27,6 +27,7 @@ import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BooleanSupplier;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
@@ -46,7 +47,7 @@ public final class EdgeTtsClient {
     private static volatile String activeSecMsGecVersion = SEC_MS_GEC_VERSION;
     private static volatile String activeChromiumMajorVersion = CHROMIUM_MAJOR_VERSION;
 
-    private static final int MAX_CHUNK_ESCAPED_UTF8_BYTES = 3500;
+    private static final int STREAM_CHUNK_ESCAPED_UTF8_BYTES = 700;
     private static final float DEFAULT_INTER_CHUNK_SILENCE_SECONDS = 0.12f;
 
     private static final String VOICES_URL =
@@ -122,6 +123,7 @@ public final class EdgeTtsClient {
 
     private volatile WebSocket activeSocket;
     private volatile boolean cancelled;
+    private volatile long operationId;
 
     public EdgeTtsClient() {}
 
@@ -275,61 +277,108 @@ public final class EdgeTtsClient {
 
     public SynthesizedAudio synthesize(Context context, String text, Voice voice, float speed,
                                        float pitch, float silenceSeconds) throws IOException {
+        ByteArrayOutputStream pcm = new ByteArrayOutputStream();
+        SynthesisResult result = synthesizeStreaming(context, text, voice, speed, pitch,
+                silenceSeconds, (chunk, sampleRate) -> pcm.write(chunk));
+        return new SynthesizedAudio(pcm.toByteArray(), result.sampleRate);
+    }
+
+    public SynthesisResult synthesizeStreaming(Context context, String text, Voice voice,
+                                                float speed, float pitch,
+                                                PcmChunkListener listener) throws IOException {
+        return synthesizeStreaming(context, text, voice, speed, pitch,
+                DEFAULT_INTER_CHUNK_SILENCE_SECONDS, listener, () -> true);
+    }
+
+    public SynthesisResult synthesizeStreaming(Context context, String text, Voice voice,
+                                                float speed, float pitch, float silenceSeconds,
+                                                PcmChunkListener listener) throws IOException {
+        return synthesizeStreaming(context, text, voice, speed, pitch, silenceSeconds,
+                listener, () -> true);
+    }
+
+    public SynthesisResult synthesizeStreaming(Context context, String text, Voice voice,
+                                                float speed, float pitch, float silenceSeconds,
+                                                PcmChunkListener listener,
+                                                BooleanSupplier shouldContinue) throws IOException {
         if (text == null || text.trim().isEmpty()) throw new IOException("Enter text to synthesize.");
         if (voice == null) throw new IOException("Select an Edge TTS voice.");
+        if (listener == null) throw new IOException("An Edge TTS audio listener is required.");
+        if (shouldContinue == null) throw new IOException("An Edge TTS cancellation guard is required.");
+        if (!shouldContinue.getAsBoolean()) {
+            throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
+        }
 
-        cancelled = false;
-        List<String> chunks = splitIntoUtf8Chunks(text, MAX_CHUNK_ESCAPED_UTF8_BYTES);
+        final long operation = startOperation();
+        if (!shouldContinue.getAsBoolean()) {
+            cancelOperation(operation);
+            throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
+        }
+        List<String> chunks = splitIntoUtf8Chunks(text, STREAM_CHUNK_ESCAPED_UTF8_BYTES);
         if (chunks.isEmpty()) {
             throw new IOException("Enter text with speakable words to synthesize.");
         }
 
-        ByteArrayOutputStream combinedPcm = new ByteArrayOutputStream();
         int outputSampleRate = 24000;
+        long totalPcmBytes = 0;
         float clampedSilence = Math.max(0.0f, Math.min(3.0f, silenceSeconds));
 
         for (int i = 0; i < chunks.size(); i++) {
-            if (cancelled) {
+            if (isStopped(operation, shouldContinue)) {
+                cancelOperation(operation);
                 throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
             }
             String chunk = chunks.get(i);
             float[] adjustedProsody = applyPunctuationProsody(chunk, speed, pitch);
             SynthesizedAudio chunkAudio = synthesizeSingleChunkWithRetry(
-                    context, chunk, voice, adjustedProsody[0], adjustedProsody[1]);
+                    context, chunk, voice, adjustedProsody[0], adjustedProsody[1], operation,
+                    shouldContinue);
 
             if (i == 0) {
                 outputSampleRate = chunkAudio.sampleRate;
+            } else if (chunkAudio.sampleRate != outputSampleRate) {
+                throw new IOException("Microsoft Edge TTS changed its audio sample rate mid-stream.");
             }
-            combinedPcm.write(chunkAudio.pcm);
+            if (isStopped(operation, shouldContinue)) {
+                cancelOperation(operation);
+                throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
+            }
+            listener.onAudioChunk(chunkAudio.pcm, outputSampleRate);
+            totalPcmBytes += chunkAudio.pcm.length;
 
             if (i < chunks.size() - 1) {
                 if (clampedSilence > 0.001f) {
                     int silenceSamples = Math.round(outputSampleRate * clampedSilence);
                     if (silenceSamples > 0) {
-                        combinedPcm.write(new byte[silenceSamples * 2]);
+                        byte[] silence = new byte[silenceSamples * 2];
+                        listener.onAudioChunk(silence, outputSampleRate);
+                        totalPcmBytes += silence.length;
                     }
                 }
                 sleepQuietly(100L);
             }
         }
 
-        byte[] finalPcm = combinedPcm.toByteArray();
-        if (finalPcm.length == 0) {
+        if (totalPcmBytes == 0) {
             throw new IOException("Microsoft Edge TTS returned no audio.");
         }
-        return new SynthesizedAudio(finalPcm, outputSampleRate);
+        return new SynthesisResult(outputSampleRate, totalPcmBytes);
     }
 
     private SynthesizedAudio synthesizeSingleChunkWithRetry(Context context, String chunk, Voice voice,
-                                                            float speed, float pitch) throws IOException {
+                                                            float speed, float pitch, long operation,
+                                                            BooleanSupplier shouldContinue)
+            throws IOException {
         IOException lastError = null;
         for (int attempt = 0; attempt < 3; attempt++) {
-            if (cancelled) {
+            if (isStopped(operation, shouldContinue)) {
+                cancelOperation(operation);
                 throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
             }
             try {
-                byte[] mp3Bytes = collectMp3(chunk, voice, speed, pitch);
-                return decodeMp3(context, mp3Bytes);
+                byte[] mp3Bytes = collectMp3(chunk, voice, speed, pitch, operation,
+                        shouldContinue);
+                return decodeMp3(context, mp3Bytes, operation);
             } catch (HttpStatusException error) {
                 lastError = error;
                 if (error.statusCode == 403 && attempt == 0) {
@@ -343,7 +392,7 @@ public final class EdgeTtsClient {
                 throw error;
             } catch (IOException error) {
                 lastError = error;
-                if (cancelled || attempt >= 2) throw error;
+                if (isStopped(operation, shouldContinue) || attempt >= 2) throw error;
                 sleepQuietly(250L * (attempt + 1));
             }
         }
@@ -491,8 +540,8 @@ public final class EdgeTtsClient {
         return new float[]{speed, pitch};
     }
 
-    private byte[] collectMp3(String text, Voice voice, float speed, float pitch)
-            throws IOException {
+    private byte[] collectMp3(String text, Voice voice, float speed, float pitch, long operation,
+                              BooleanSupplier shouldContinue) throws IOException {
         ByteArrayOutputStream mp3 = new ByteArrayOutputStream();
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<IOException> failure = new AtomicReference<>();
@@ -517,9 +566,14 @@ public final class EdgeTtsClient {
                 .header("Cookie", createMuidCookie())
                 .build();
 
-        activeSocket = WEBSOCKET_HTTP.newWebSocket(request, new WebSocketListener() {
+        WebSocket socket = WEBSOCKET_HTTP.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
+                if (isStopped(operation, shouldContinue)) {
+                    webSocket.cancel();
+                    completed.countDown();
+                    return;
+                }
                 String config = "X-Timestamp:" + timestamp
                         + "\r\nContent-Type:application/json; charset=utf-8"
                         + "\r\nPath:speech.config\r\n\r\n"
@@ -546,6 +600,11 @@ public final class EdgeTtsClient {
 
             @Override
             public void onMessage(WebSocket webSocket, String message) {
+                if (isStopped(operation, shouldContinue)) {
+                    completed.countDown();
+                    webSocket.cancel();
+                    return;
+                }
                 if (message.contains("Path:turn.end")) {
                     completed.countDown();
                     webSocket.close(1000, "Synthesis complete");
@@ -558,6 +617,11 @@ public final class EdgeTtsClient {
 
             @Override
             public void onMessage(WebSocket webSocket, ByteString bytes) {
+                if (isStopped(operation, shouldContinue)) {
+                    completed.countDown();
+                    webSocket.cancel();
+                    return;
+                }
                 byte[] frame = bytes.toByteArray();
                 if (frame.length < 2) return;
                 int headerLength = ((frame[0] & 0xff) << 8) | (frame[1] & 0xff);
@@ -594,18 +658,23 @@ public final class EdgeTtsClient {
                 }
             }
         });
+        if (isCancelled(operation)) {
+            socket.cancel();
+        } else {
+            activeSocket = socket;
+        }
 
         try {
             if (!completed.await(60, TimeUnit.SECONDS)) {
-                cancel();
+                cancelOperation(operation);
                 throw new IOException("Microsoft Edge TTS timed out. Check your connection and try again.");
             }
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            cancel();
+            cancelOperation(operation);
             throw new IOException("Microsoft Edge TTS was interrupted.", error);
         } finally {
-            activeSocket = null;
+            if (activeSocket == socket) activeSocket = null;
         }
 
         IOException error = failure.get();
@@ -618,10 +687,30 @@ public final class EdgeTtsClient {
         return mp3Bytes;
     }
 
-    public void cancel() {
+    public synchronized void cancel() {
         cancelled = true;
+        operationId++;
         WebSocket socket = activeSocket;
         if (socket != null) socket.cancel();
+    }
+
+    private synchronized long startOperation() {
+        WebSocket previous = activeSocket;
+        if (previous != null) previous.cancel();
+        cancelled = false;
+        return ++operationId;
+    }
+
+    private boolean isCancelled(long operation) {
+        return cancelled || operationId != operation;
+    }
+
+    private boolean isStopped(long operation, BooleanSupplier shouldContinue) {
+        return isCancelled(operation) || !shouldContinue.getAsBoolean();
+    }
+
+    private synchronized void cancelOperation(long operation) {
+        if (operationId == operation) cancel();
     }
 
     static String createSecMsGecToken(double unixTimestampSeconds) {
@@ -899,7 +988,8 @@ public final class EdgeTtsClient {
         return escapeXmlText(value);
     }
 
-    private static SynthesizedAudio decodeMp3(Context context, byte[] mp3Bytes) throws IOException {
+    private SynthesizedAudio decodeMp3(Context context, byte[] mp3Bytes, long operation)
+            throws IOException {
         File inputFile = File.createTempFile("edge-tts-", ".mp3", context.getCacheDir());
         MediaExtractor extractor = new MediaExtractor();
         MediaCodec decoder = null;
@@ -936,6 +1026,9 @@ public final class EdgeTtsClient {
             int pcmEncoding = android.media.AudioFormat.ENCODING_PCM_16BIT;
 
             while (!outputEnded) {
+                if (isCancelled(operation)) {
+                    throw new IOException("Microsoft Edge TTS synthesis was cancelled.");
+                }
                 if (!inputEnded) {
                     int inputIndex = decoder.dequeueInputBuffer(10000);
                     if (inputIndex >= 0) {
@@ -1038,6 +1131,20 @@ public final class EdgeTtsClient {
         SynthesizedAudio(byte[] pcm, int sampleRate) {
             this.pcm = pcm;
             this.sampleRate = sampleRate;
+        }
+    }
+
+    public interface PcmChunkListener {
+        void onAudioChunk(byte[] pcm, int sampleRate) throws IOException;
+    }
+
+    public static final class SynthesisResult {
+        public final int sampleRate;
+        public final long pcmBytes;
+
+        SynthesisResult(int sampleRate, long pcmBytes) {
+            this.sampleRate = sampleRate;
+            this.pcmBytes = pcmBytes;
         }
     }
 }

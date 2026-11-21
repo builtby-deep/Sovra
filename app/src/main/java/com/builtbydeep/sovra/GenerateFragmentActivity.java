@@ -78,6 +78,9 @@ public class GenerateFragmentActivity extends Fragment {
 	private boolean isAudioGeneratedForCurrentText = false;
 	private String lastGeneratedText = "";
 	private byte[] lastGeneratedPcmData = null;
+	private volatile java.io.File lastGeneratedPcmFile;
+	private volatile java.io.File activeEdgePcmFile;
+	private volatile long lastGeneratedPcmBytes;
 	private android.media.AudioTrack audioTrack;
 	private android.animation.ValueAnimator playheadAnimator;
 	androidx.appcompat.widget.ListPopupWindow listPopupWindow;
@@ -88,14 +91,17 @@ public class GenerateFragmentActivity extends Fragment {
 	com.builtbydeep.sovra.GenerationParams lastParams = null;
 	private volatile int currentGenerationId = 0;
 	private String currentUiModelPath = "";
-	private android.media.AudioTrack liveStreamTrack = null;
+	private volatile android.media.AudioTrack liveStreamTrack = null;
+	private volatile boolean edgeStreamStarted;
+	private volatile boolean isEdgeTtsGenerating;
+	private volatile long edgePlaybackId;
 	private String lastSettingsState = "";
 	private java.util.ArrayList<com.builtbydeep.sovra.KokoroVoiceHelper.RegionItem> kokoroRegions =
 			new java.util.ArrayList<>();
 	private java.util.ArrayList<com.builtbydeep.sovra.KokoroVoiceHelper.VoiceItem> kokoroFilteredVoices =
 			new java.util.ArrayList<>();
 	private boolean suppressKokoroFilterCallbacks;
-	private final com.builtbydeep.sovra.EdgeTtsClient edgeTtsClient =
+	private volatile com.builtbydeep.sovra.EdgeTtsClient edgeTtsClient =
 			new com.builtbydeep.sovra.EdgeTtsClient();
 	private volatile java.util.List<com.builtbydeep.sovra.EdgeTtsClient.Voice> edgeVoices =
 			com.builtbydeep.sovra.EdgeTtsClient.fallbackVoices();
@@ -262,6 +268,10 @@ public class GenerateFragmentActivity extends Fragment {
 				}
 				
 				if (isGenerating) {
+					if (isEdgeTts && edgeStreamStarted) {
+						_cancelGeneration();
+						return;
+					}
 					if (!isCancelled) {
 						new com.google.android.material.dialog.MaterialAlertDialogBuilder(getContext())
 						.setTitle("Cancel Generation")
@@ -293,9 +303,15 @@ public class GenerateFragmentActivity extends Fragment {
 									sp3.getInt("supertonic_num_steps", SupertonicEngine.DEFAULT_GENERATION_STEPS)));
 					
 					_forceResetToIdle();
+					final com.builtbydeep.sovra.EdgeTtsClient generationEdgeTtsClient =
+							new com.builtbydeep.sovra.EdgeTtsClient();
+					edgeTtsClient = generationEdgeTtsClient;
 					isGenerating = true;
 					isCancelled = false;
+					isEdgeTtsGenerating = isEdgeTts;
+					edgeStreamStarted = false;
 					final int myGenId = currentGenerationId;
+					final long myEdgePlaybackId = ++edgePlaybackId;
 					
 					binding.btnGenerate.setEnabled(true);
 					binding.btnGenerate.setAlpha(1.0f);
@@ -327,6 +343,8 @@ public class GenerateFragmentActivity extends Fragment {
 						
 						String loadResult = "";
 						byte[] finalGeneratedPcm = null;
+						java.io.File generatedPcmFile = null;
+						long generatedPcmBytes = 0;
 						int generatedSampleRate = 24000;
 						java.io.ByteArrayOutputStream pcmStream = new java.io.ByteArrayOutputStream();
 						
@@ -347,15 +365,112 @@ public class GenerateFragmentActivity extends Fragment {
 										new com.builtbydeep.sovra.EdgeTtsClient.Voice(
 												selectedEdgeVoice, selectedEdgeLocale,
 												sp1.getString("edge_voice_gender", "Unknown"));
-								com.builtbydeep.sovra.EdgeTtsClient.SynthesizedAudio audio =
-										edgeTtsClient.synthesize(generationContext, params.text, voice,
-												params.speed, params.pitch);
-								generatedSampleRate = audio.sampleRate;
-								pcmStream.write(audio.pcm);
+								generatedPcmFile = java.io.File.createTempFile(
+										"edge-tts-", ".pcm", generationContext.getCacheDir());
+								activeEdgePcmFile = generatedPcmFile;
+								final int[] streamSampleRate = {0};
+								final boolean[] firstAudioChunk = {true};
+								try (java.io.BufferedOutputStream pcmOutput =
+											 new java.io.BufferedOutputStream(
+													 new java.io.FileOutputStream(generatedPcmFile))) {
+									com.builtbydeep.sovra.EdgeTtsClient.SynthesisResult result =
+											generationEdgeTtsClient.synthesizeStreaming(
+													generationContext, params.text,
+													voice, params.speed, params.pitch,
+													(pcm, sampleRate) -> {
+														if (isCancelled || myGenId != currentGenerationId) {
+															throw new java.io.IOException(
+																	"Microsoft Edge TTS synthesis was cancelled.");
+														}
+														if (streamSampleRate[0] == 0) {
+															streamSampleRate[0] = sampleRate;
+														} else if (streamSampleRate[0] != sampleRate) {
+															throw new java.io.IOException(
+																	"Microsoft Edge TTS changed its sample rate.");
+														}
+														pcmOutput.write(pcm);
+														android.media.AudioTrack track = liveStreamTrack;
+														if (track == null) {
+															track = createEdgeStreamTrack(sampleRate);
+															liveStreamTrack = track;
+															if (audioManager != null && focusRequest != null) {
+																audioManager.requestAudioFocus(focusRequest);
+															}
+															track.play();
+															edgeStreamStarted = true;
+														}
+														int offset = 0;
+														while (offset < pcm.length) {
+															if (isCancelled || myGenId != currentGenerationId
+																	|| liveStreamTrack != track) {
+																throw new java.io.IOException(
+																		"Microsoft Edge TTS playback was cancelled.");
+															}
+															int written = track.write(
+																	pcm, offset, pcm.length - offset);
+															if (written < 0) {
+																throw new java.io.IOException(
+																		"Unable to write Edge TTS audio to playback.");
+															}
+															if (written == 0) {
+																try {
+																	Thread.sleep(10L);
+																} catch (InterruptedException interrupted) {
+																	Thread.currentThread().interrupt();
+																	throw new java.io.IOException(
+																			"Edge TTS playback was interrupted.",
+																			interrupted);
+																}
+															} else {
+																offset += written;
+															}
+														}
+														if (firstAudioChunk[0]) {
+															firstAudioChunk[0] = false;
+															if (getActivity() != null && isAdded()) {
+																getActivity().runOnUiThread(() -> {
+																	if (myGenId != currentGenerationId
+																			|| isCancelled) return;
+																	binding.imageview52.setImageResource(
+																			R.drawable.icon_pause_circle);
+																	binding.textview92.setText("Pause");
+																	binding.textview69.setText(
+																			"STREAMING EDGE TTS...");
+																	com.builtbydeep.sovra.system.VoxMediaController
+																			.getInstance(getContext())
+																			.updatePlaybackState("Sovra Audio",
+																					"Playing...", com.builtbydeep.sovra
+																							.system.VoxMediaController.STATE_PLAYING,
+																					false);
+																});
+															}
+														}
+													}, () -> !isCancelled
+															&& myGenId == currentGenerationId);
+									generatedSampleRate = result.sampleRate;
+									generatedPcmBytes = result.pcmBytes;
+								}
 								loadResult = "Success";
 							} catch (Exception error) {
 								loadResult = error.getMessage() == null
 										? "Microsoft Edge TTS synthesis failed." : error.getMessage();
+								if (generatedPcmFile != null) generatedPcmFile.delete();
+								if (activeEdgePcmFile == generatedPcmFile) activeEdgePcmFile = null;
+								generatedPcmFile = null;
+								if (myGenId == currentGenerationId && liveStreamTrack != null) {
+									try {
+										liveStreamTrack.pause();
+										liveStreamTrack.flush();
+										liveStreamTrack.stop();
+										liveStreamTrack.release();
+									} catch (Exception releaseError) {
+										android.util.Log.w("GenerateFragmentActivity",
+												"Unable to release failed Edge TTS playback.",
+												releaseError);
+									}
+									liveStreamTrack = null;
+									edgeStreamStarted = false;
+								}
 							}
 						} else if (isKokoro) {
 							com.builtbydeep.sovra.KokoroEngine.getInstance().setActiveSpeakerId(params.kokoroVoiceId);
@@ -518,13 +633,15 @@ public class GenerateFragmentActivity extends Fragment {
 							} catch (Exception ignored) {}
 						}
 						
-						finalGeneratedPcm = pcmStream.toByteArray();
+						if (!isEdgeTts) finalGeneratedPcm = pcmStream.toByteArray();
 						
 						try {
 							pcmStream.close(); 
 						} catch (Exception ignored) {}
 						
 						final byte[] finalPcm = finalGeneratedPcm;
+						final java.io.File finalPcmFile = generatedPcmFile;
+						final long finalPcmBytes = generatedPcmBytes;
 						final String finalLoadResult = loadResult;
 						final int finalSampleRate = generatedSampleRate;
 						final int finalHead = handoffHeadPos[0];
@@ -533,12 +650,20 @@ public class GenerateFragmentActivity extends Fragment {
 							getActivity().runOnUiThread(() -> {
 								if (myGenId != currentGenerationId) return;
 								isGenerating = false;
+								isEdgeTtsGenerating = false;
+								if (activeEdgePcmFile == finalPcmFile) activeEdgePcmFile = null;
 								binding.btnGenerate.setEnabled(true);
 								binding.btnGenerate.setAlpha(1.0f);
 								binding.progressGenerating.setVisibility(android.view.View.GONE);
 								
-								if ("Success".equals(finalLoadResult) && finalPcm != null && finalPcm.length > 0) {
-									lastGeneratedPcmData = finalPcm;
+								if ("Success".equals(finalLoadResult)
+										&& (isEdgeTts
+												? finalPcmFile != null && finalPcmFile.isFile()
+														&& finalPcmBytes > 0
+												: finalPcm != null && finalPcm.length > 0)) {
+									lastGeneratedPcmData = isEdgeTts ? null : finalPcm;
+									lastGeneratedPcmFile = isEdgeTts ? finalPcmFile : null;
+									lastGeneratedPcmBytes = isEdgeTts ? finalPcmBytes : 0;
 									lastGeneratedSampleRate = finalSampleRate;
 									isAudioGeneratedForCurrentText = true;
 									lastParams = params;
@@ -546,15 +671,63 @@ public class GenerateFragmentActivity extends Fragment {
 									binding.layoutIdleState.setVisibility(android.view.View.GONE);
 									binding.layoutGeneratedState.setVisibility(android.view.View.VISIBLE);
 									binding.textview69.setText("GENERATION COMPLETE");
-									
-									final int totalFrames = finalPcm.length / 2;
-									final double totalSeconds = (double) totalFrames / finalSampleRate;
-									final int w = binding.imgWaveform.getWidth() > 0 ? binding.imgWaveform.getWidth() : 800;
-									
-									android.graphics.Bitmap waveBmp = com.builtbydeep.sovra.WaveformHelper.createWaveformBitmap(finalPcm, w, 150);
-									if (waveBmp != null) binding.imgWaveform.setImageBitmap(waveBmp);
-									
-									try {
+									if (isEdgeTts) {
+										long totalFrames = finalPcmBytes / 2L;
+										double totalSeconds = (double) totalFrames / finalSampleRate;
+										binding.playheadLine.setVisibility(android.view.View.VISIBLE);
+										binding.imgWaveform.setImageDrawable(null);
+										binding.tvDuration.setText(String.format(java.util.Locale.US,
+												"0:00 / %d:%02d", (int) (totalSeconds / 60),
+												(int) (totalSeconds % 60)));
+										android.media.AudioTrack streamingTrack = liveStreamTrack;
+										if (streamingTrack != null) {
+											boolean streamPlaying = streamingTrack.getPlayState()
+													== android.media.AudioTrack.PLAYSTATE_PLAYING;
+											binding.imageview52.setImageResource(streamPlaying
+													? R.drawable.icon_pause_circle
+													: R.drawable.icon_play_circle);
+											binding.textview92.setText(streamPlaying ? "Pause" : "Play");
+											if (streamPlaying) {
+											android.content.Intent durationIntent =
+													new android.content.Intent(getContext(),
+															com.builtbydeep.sovra.system.VoxMediaService.class);
+											durationIntent.setAction("ACTION_UPDATE_STATE");
+											durationIntent.putExtra("title", "Sovra Audio");
+											durationIntent.putExtra("subtitle", "Playing...");
+											durationIntent.putExtra("state",
+													com.builtbydeep.sovra.system.VoxMediaController.STATE_PLAYING);
+											durationIntent.putExtra("isLibraryMode", false);
+											durationIntent.putExtra("duration",
+													(long) (totalSeconds * 1000));
+											if (android.os.Build.VERSION.SDK_INT
+													>= android.os.Build.VERSION_CODES.O) {
+												getContext().startForegroundService(durationIntent);
+											} else {
+												getContext().startService(durationIntent);
+											}
+											}
+											startEdgePlaybackMonitor(streamingTrack, myEdgePlaybackId,
+													totalFrames, totalSeconds);
+											if (!streamPlaying && playheadAnimator != null) {
+												playheadAnimator.pause();
+											}
+										} else {
+											binding.imageview52.setImageResource(
+													R.drawable.icon_play_circle);
+											binding.textview92.setText("Play");
+										}
+									} else {
+										final int totalFrames = finalPcm.length / 2;
+										final double totalSeconds = (double) totalFrames / finalSampleRate;
+										final int w = binding.imgWaveform.getWidth() > 0
+												? binding.imgWaveform.getWidth() : 800;
+
+										android.graphics.Bitmap waveBmp =
+												com.builtbydeep.sovra.WaveformHelper
+														.createWaveformBitmap(finalPcm, w, 150);
+										if (waveBmp != null) binding.imgWaveform.setImageBitmap(waveBmp);
+
+										try {
 										if (audioTrack != null) {
 											audioTrack.release();
 											audioTrack = null;
@@ -679,6 +852,7 @@ public class GenerateFragmentActivity extends Fragment {
 										});
 										
 									} catch (Exception ignored) {}
+									}
 								} else {
 									binding.progressGenerating.setVisibility(android.view.View.GONE);
 									binding.imageview65.setVisibility(android.view.View.VISIBLE);
@@ -703,6 +877,9 @@ public class GenerateFragmentActivity extends Fragment {
 									}
 								}
 							});
+						} else if (generatedPcmFile != null) {
+							generatedPcmFile.delete();
+							if (activeEdgePcmFile == generatedPcmFile) activeEdgePcmFile = null;
 						}
 					}).start();
 					if (isEdgeTts) {
@@ -753,6 +930,25 @@ public class GenerateFragmentActivity extends Fragment {
 					
 					if (audioTrack != null && audioTrack.getState() != android.media.AudioTrack.STATE_UNINITIALIZED) {
 						try { audioTrack.stop(); } catch (Exception e) {}
+					}
+					if (lastGeneratedPcmFile != null || edgeStreamStarted) {
+						edgePlaybackId++;
+						edgeStreamStarted = false;
+						try {
+							if (liveStreamTrack != null) {
+								liveStreamTrack.pause();
+								liveStreamTrack.flush();
+								liveStreamTrack.stop();
+								liveStreamTrack.release();
+								liveStreamTrack = null;
+							}
+						} catch (Exception error) {
+							android.util.Log.w("GenerateFragmentActivity",
+									"Unable to stop previous Edge TTS playback.", error);
+						}
+						if (lastGeneratedPcmFile != null) lastGeneratedPcmFile.delete();
+						lastGeneratedPcmFile = null;
+						lastGeneratedPcmBytes = 0;
 					}
 					if (playheadAnimator != null) playheadAnimator.cancel();
 				}
@@ -1386,6 +1582,33 @@ public class GenerateFragmentActivity extends Fragment {
 	@Override
 	public void onDestroy() {
 		super.onDestroy();
+		if (isEdgeTtsGenerating) {
+			isCancelled = true;
+			currentGenerationId++;
+			edgeTtsClient.cancel();
+		}
+		edgePlaybackId++;
+		if (edgeStreamStarted && liveStreamTrack != null) {
+			try {
+				liveStreamTrack.pause();
+				liveStreamTrack.flush();
+				liveStreamTrack.stop();
+				liveStreamTrack.release();
+			} catch (Exception error) {
+				android.util.Log.w("GenerateFragmentActivity",
+						"Unable to release Edge TTS playback on destroy.", error);
+			}
+			liveStreamTrack = null;
+			edgeStreamStarted = false;
+		}
+		if (lastGeneratedPcmFile != null) {
+			lastGeneratedPcmFile.delete();
+			lastGeneratedPcmFile = null;
+		}
+		if (activeEdgePcmFile != null) {
+			activeEdgePcmFile.delete();
+			activeEdgePcmFile = null;
+		}
 		// Fragment me sirf AudioTrack aur UI Animator ko release karna hai
 		if (audioTrack != null) {
 			try {
@@ -1798,11 +2021,176 @@ public class GenerateFragmentActivity extends Fragment {
 		}
 		
 	}
+	private android.media.AudioTrack createEdgeStreamTrack(int sampleRate)
+			throws java.io.IOException {
+		int minBufferSize = android.media.AudioTrack.getMinBufferSize(sampleRate,
+				android.media.AudioFormat.CHANNEL_OUT_MONO,
+				android.media.AudioFormat.ENCODING_PCM_16BIT);
+		if (minBufferSize <= 0) {
+			throw new java.io.IOException("Unable to initialize audio playback.");
+		}
+		android.media.AudioTrack track = new android.media.AudioTrack.Builder()
+				.setAudioAttributes(new android.media.AudioAttributes.Builder()
+						.setUsage(android.media.AudioAttributes.USAGE_MEDIA)
+						.setContentType(android.media.AudioAttributes.CONTENT_TYPE_MUSIC)
+						.build())
+				.setAudioFormat(new android.media.AudioFormat.Builder()
+						.setEncoding(android.media.AudioFormat.ENCODING_PCM_16BIT)
+						.setSampleRate(sampleRate)
+						.setChannelMask(android.media.AudioFormat.CHANNEL_OUT_MONO)
+						.build())
+				.setBufferSizeInBytes(Math.max(minBufferSize, sampleRate * 2))
+				.setTransferMode(android.media.AudioTrack.MODE_STREAM)
+				.build();
+		if (track.getState() != android.media.AudioTrack.STATE_INITIALIZED) {
+			track.release();
+			throw new java.io.IOException("Unable to initialize audio playback.");
+		}
+		return track;
+	}
+
+	private void startEdgePlaybackMonitor(android.media.AudioTrack track, long playbackId,
+	                                      long totalFrames, double totalSeconds) {
+		long playedFrames = Integer.toUnsignedLong(track.getPlaybackHeadPosition());
+		int width = binding.imgWaveform.getWidth() > 0 ? binding.imgWaveform.getWidth() : 800;
+		float startX = (float) Math.min(1.0, (double) playedFrames / totalFrames) * width;
+		binding.playheadLine.setTranslationX(startX);
+		if (playheadAnimator != null) playheadAnimator.cancel();
+		playheadAnimator = android.animation.ValueAnimator.ofFloat(startX, (float) width);
+		playheadAnimator.setDuration(Math.max(0L,
+				(long) ((totalFrames - Math.min(playedFrames, totalFrames))
+						* 1000.0 / lastGeneratedSampleRate)));
+		playheadAnimator.setInterpolator(new android.view.animation.LinearInterpolator());
+		playheadAnimator.addUpdateListener(animator -> {
+			float position = (float) animator.getAnimatedValue();
+			binding.playheadLine.setTranslationX(position);
+			double elapsed = position / width * totalSeconds;
+			binding.tvDuration.setText(String.format(java.util.Locale.US, "%d:%02d / %d:%02d",
+					(int) (elapsed / 60), (int) (elapsed % 60),
+					(int) (totalSeconds / 60), (int) (totalSeconds % 60)));
+		});
+		playheadAnimator.start();
+
+		new Thread(() -> {
+			while (liveStreamTrack == track && edgePlaybackId == playbackId && !isCancelled) {
+				long head = Integer.toUnsignedLong(track.getPlaybackHeadPosition());
+				if (head >= totalFrames) break;
+				try {
+					Thread.sleep(100L);
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+					return;
+				}
+			}
+			if (liveStreamTrack != track || edgePlaybackId != playbackId || isCancelled) return;
+			if (getActivity() != null && isAdded()) {
+				getActivity().runOnUiThread(() -> {
+					if (liveStreamTrack != track || edgePlaybackId != playbackId) return;
+					try {
+						track.stop();
+						track.release();
+					} catch (IllegalStateException error) {
+						android.util.Log.w("GenerateFragmentActivity",
+								"Unable to release completed Edge TTS playback.", error);
+					}
+					liveStreamTrack = null;
+					edgeStreamStarted = false;
+					binding.imageview52.setImageResource(R.drawable.icon_play_circle);
+					binding.textview92.setText("Play");
+					binding.playheadLine.setTranslationX(0f);
+					binding.tvDuration.setText(String.format(java.util.Locale.US, "0:00 / %d:%02d",
+							(int) (totalSeconds / 60), (int) (totalSeconds % 60)));
+					if (playheadAnimator != null) playheadAnimator.cancel();
+					com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext())
+							.hideNotification();
+				});
+			}
+		}, "edge-playback-monitor").start();
+	}
+
+	private void startEdgeFilePlayback() {
+		final java.io.File pcmFile = lastGeneratedPcmFile;
+		if (pcmFile == null || !pcmFile.isFile() || lastGeneratedPcmBytes <= 0) return;
+		final int sampleRate = lastGeneratedSampleRate;
+		final long totalFrames = lastGeneratedPcmBytes / 2L;
+		final double totalSeconds = (double) totalFrames / sampleRate;
+		final long playbackId = ++edgePlaybackId;
+		final int generationId = currentGenerationId;
+		try {
+			android.media.AudioTrack track = createEdgeStreamTrack(sampleRate);
+			liveStreamTrack = track;
+			edgeStreamStarted = true;
+			if (audioManager != null && focusRequest != null) audioManager.requestAudioFocus(focusRequest);
+			track.play();
+			binding.imageview52.setImageResource(R.drawable.icon_pause_circle);
+			binding.textview92.setText("Pause");
+			com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext())
+					.updatePlaybackState("Sovra Audio", "Playing...",
+							com.builtbydeep.sovra.system.VoxMediaController.STATE_PLAYING, false);
+			new Thread(() -> {
+				try (java.io.BufferedInputStream input =
+							 new java.io.BufferedInputStream(new java.io.FileInputStream(pcmFile))) {
+					byte[] buffer = new byte[8192];
+					int length;
+					while ((length = input.read(buffer)) != -1) {
+						int offset = 0;
+						while (offset < length) {
+							if (playbackId != edgePlaybackId || generationId != currentGenerationId
+									|| liveStreamTrack != track) return;
+							int written = track.write(buffer, offset, length - offset);
+							if (written < 0) {
+								throw new java.io.IOException("Unable to play saved Edge TTS audio.");
+							}
+							if (written == 0) Thread.sleep(10L);
+							else offset += written;
+						}
+					}
+					if (playbackId == edgePlaybackId && liveStreamTrack == track) {
+						if (getActivity() != null && isAdded()) {
+							getActivity().runOnUiThread(() -> {
+								if (playbackId == edgePlaybackId && liveStreamTrack == track) {
+									startEdgePlaybackMonitor(track, playbackId, totalFrames, totalSeconds);
+								}
+							});
+						}
+					}
+				} catch (InterruptedException interrupted) {
+					Thread.currentThread().interrupt();
+				} catch (java.io.IOException error) {
+					android.util.Log.e("GenerateFragmentActivity",
+							"Unable to play saved Edge TTS audio.", error);
+					if (liveStreamTrack == track && playbackId == edgePlaybackId) {
+						try {
+							track.stop();
+							track.release();
+						} catch (IllegalStateException releaseError) {
+							android.util.Log.w("GenerateFragmentActivity",
+									"Unable to release failed Edge TTS playback.", releaseError);
+						}
+						liveStreamTrack = null;
+						edgeStreamStarted = false;
+						if (getActivity() != null && isAdded()) {
+							getActivity().runOnUiThread(() -> {
+								binding.imageview52.setImageResource(R.drawable.icon_play_circle);
+								binding.textview92.setText("Play");
+								com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext())
+										.hideNotification();
+							});
+						}
+					}
+				}
+			}, "edge-file-playback").start();
+		} catch (java.io.IOException error) {
+			android.util.Log.e("GenerateFragmentActivity", "Unable to initialize Edge TTS playback.", error);
+		}
+	}
+
 	public void _saveAudioAction() {
 		// ─── SAVE BUTTON LOGIC ──────────────────────────────────────────────────────
 		
 		// Pehle check karenge ki audio generate hui hai ya nahi.
-		if (!isAudioGeneratedForCurrentText || lastGeneratedPcmData == null) {
+		if (!isAudioGeneratedForCurrentText
+				|| (lastGeneratedPcmData == null && lastGeneratedPcmFile == null)) {
 			if (getView() != null) {
 				com.google.android.material.snackbar.Snackbar.make(getView(), "Please generate audio first!", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT)
 				.setBackgroundTint(android.graphics.Color.parseColor("#EF4444"))
@@ -1816,7 +2204,11 @@ public class GenerateFragmentActivity extends Fragment {
 		int sampleRateToSave = lastGeneratedSampleRate > 0 ? lastGeneratedSampleRate : 22050;
 		
 		String cleanFileName = "Vox_" + System.currentTimeMillis() + ".wav";
-		String savedPath = com.builtbydeep.sovra.AudioHelper.saveWavFile(lastGeneratedPcmData, cleanFileName, sampleRateToSave, getContext());
+		String savedPath = lastGeneratedPcmFile != null
+				? com.builtbydeep.sovra.AudioHelper.saveWavFile(
+						lastGeneratedPcmFile, cleanFileName, sampleRateToSave, getContext())
+				: com.builtbydeep.sovra.AudioHelper.saveWavFile(
+						lastGeneratedPcmData, cleanFileName, sampleRateToSave, getContext());
 		
 		if (!savedPath.isEmpty()) {
 			try {
@@ -1866,7 +2258,9 @@ public class GenerateFragmentActivity extends Fragment {
 				newItem.put("path", savedPath);
 				
 				// Exact duration calculation to prevent UI formatting bugs
-				double totalSeconds = (lastGeneratedPcmData.length / 2.0) / sampleRateToSave;
+				long audioBytes = lastGeneratedPcmFile != null
+						? lastGeneratedPcmBytes : lastGeneratedPcmData.length;
+				double totalSeconds = (audioBytes / 2.0) / sampleRateToSave;
 				int min = (int) (totalSeconds / 60);
 				int sec = (int) (totalSeconds % 60);
 				String cleanDuration = String.format(java.util.Locale.US, "%d:%02d", min, sec);
@@ -1907,6 +2301,7 @@ public class GenerateFragmentActivity extends Fragment {
 	
 	
 	public void _forceResetToIdle() {
+		boolean resetEdgeStream = edgeStreamStarted;
 		// CRITICAL SIGSEGV FIX: Cancel native engines to stop C++ background generation immediately
 		try {
 			com.builtbydeep.sovra.VoiceEngine.getInstance().cancel();
@@ -1916,11 +2311,19 @@ public class GenerateFragmentActivity extends Fragment {
 		} catch (Throwable ignored) {}
 		
 		currentGenerationId++; 
+		edgePlaybackId++;
 		isCancelled = true;
 		isGenerating = false;
+		isEdgeTtsGenerating = false;
 		isAudioGeneratedForCurrentText = false;
 		lastParams = null;
 		lastGeneratedPcmData = null;
+		if (lastGeneratedPcmFile != null) lastGeneratedPcmFile.delete();
+		lastGeneratedPcmFile = null;
+		if (activeEdgePcmFile != null) activeEdgePcmFile.delete();
+		activeEdgePcmFile = null;
+		lastGeneratedPcmBytes = 0;
+		edgeStreamStarted = false;
 		
 		try {
 			if (audioTrack != null) {
@@ -1932,6 +2335,7 @@ public class GenerateFragmentActivity extends Fragment {
 		
 		try {
 			if (liveStreamTrack != null) {
+				if (resetEdgeStream) liveStreamTrack.flush();
 				liveStreamTrack.stop();
 				liveStreamTrack.release();
 				liveStreamTrack = null;
@@ -1966,6 +2370,61 @@ public class GenerateFragmentActivity extends Fragment {
 	
 	
 	public void _toggleGeneratePlayback() {
+		if (isGenerating && edgeStreamStarted) {
+			_cancelGeneration();
+			return;
+		}
+		if (edgeStreamStarted && liveStreamTrack != null) {
+			android.media.AudioTrack track = liveStreamTrack;
+			if (track.getPlayState() == android.media.AudioTrack.PLAYSTATE_PLAYING) {
+				track.pause();
+				binding.imageview52.setImageResource(R.drawable.icon_play_circle);
+				binding.textview92.setText("Play");
+				if (playheadAnimator != null) playheadAnimator.pause();
+				com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext())
+						.updatePlaybackState("Sovra Audio", "Paused",
+								com.builtbydeep.sovra.system.VoxMediaController.STATE_PAUSED, false);
+			} else {
+				_requestAudioFocus();
+				track.play();
+				binding.imageview52.setImageResource(R.drawable.icon_pause_circle);
+				binding.textview92.setText("Pause");
+				if (playheadAnimator != null && playheadAnimator.isPaused()) {
+					playheadAnimator.resume();
+				}
+				com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext())
+						.updatePlaybackState("Sovra Audio", "Playing...",
+								com.builtbydeep.sovra.system.VoxMediaController.STATE_PLAYING, false);
+			}
+			return;
+		}
+		if (isAudioGeneratedForCurrentText && lastGeneratedPcmFile != null) {
+			if (liveStreamTrack != null
+					&& liveStreamTrack.getPlayState() == android.media.AudioTrack.PLAYSTATE_PLAYING) {
+				liveStreamTrack.pause();
+				binding.imageview52.setImageResource(R.drawable.icon_play_circle);
+				binding.textview92.setText("Play");
+				if (playheadAnimator != null) playheadAnimator.pause();
+				com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext())
+						.updatePlaybackState("Sovra Audio", "Paused",
+								com.builtbydeep.sovra.system.VoxMediaController.STATE_PAUSED, false);
+			} else if (liveStreamTrack != null
+					&& liveStreamTrack.getPlayState() == android.media.AudioTrack.PLAYSTATE_PAUSED) {
+				_requestAudioFocus();
+				liveStreamTrack.play();
+				binding.imageview52.setImageResource(R.drawable.icon_pause_circle);
+				binding.textview92.setText("Pause");
+				if (playheadAnimator != null && playheadAnimator.isPaused()) {
+					playheadAnimator.resume();
+				}
+				com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext())
+						.updatePlaybackState("Sovra Audio", "Playing...",
+								com.builtbydeep.sovra.system.VoxMediaController.STATE_PLAYING, false);
+			} else {
+				startEdgeFilePlayback();
+			}
+			return;
+		}
 		
 		if (!isAudioGeneratedForCurrentText || audioTrack == null || lastGeneratedPcmData == null) return;
 		
@@ -2051,13 +2510,23 @@ public class GenerateFragmentActivity extends Fragment {
 	
 	public void _cancelGeneration() {
 		if (isGenerating && !isCancelled) {
+			boolean cancelEdgeStream = isEdgeTtsGenerating;
+			com.builtbydeep.sovra.EdgeTtsClient clientToCancel = edgeTtsClient;
 			isCancelled = true;
 			isGenerating = false;
+			isEdgeTtsGenerating = false;
+			if (cancelEdgeStream) {
+				currentGenerationId++;
+				edgePlaybackId++;
+				clientToCancel.cancel();
+				if (activeEdgePcmFile != null) activeEdgePcmFile.delete();
+				activeEdgePcmFile = null;
+			}
 			new Thread(() -> {
 				try { com.builtbydeep.sovra.VoiceEngine.getInstance().cancel(); } catch (Exception ignored) {}
 				try { com.builtbydeep.sovra.KokoroEngine.getInstance().cancel(); } catch (Exception ignored) {}
 				try { com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel(); } catch (Exception ignored) {}
-				edgeTtsClient.cancel();
+				if (!cancelEdgeStream) clientToCancel.cancel();
 			}).start();
 			
 			// LiveStream track (Instant Silence)
@@ -2066,14 +2535,29 @@ public class GenerateFragmentActivity extends Fragment {
 					liveStreamTrack.pause();
 					liveStreamTrack.flush();
 					liveStreamTrack.stop();
+					if (cancelEdgeStream) {
+						liveStreamTrack.release();
+						liveStreamTrack = null;
+					}
 				}
 			} catch (Exception ignored) {}
+			if (cancelEdgeStream) edgeStreamStarted = false;
 			
 			if (binding != null) {
 				try {
-					binding.textview92.setText("Canceling...");
-					binding.btnGenerate.setAlpha(0.5f);
-					binding.btnGenerate.setEnabled(false);
+					if (cancelEdgeStream) {
+						binding.textview92.setText("Play");
+						binding.imageview52.setImageResource(R.drawable.icon_play_circle);
+						binding.textview69.setText("READY TO SYNTHESIZE");
+						binding.progressGenerating.setVisibility(android.view.View.GONE);
+						binding.imageview65.setVisibility(android.view.View.VISIBLE);
+						binding.btnGenerate.setAlpha(1.0f);
+						binding.btnGenerate.setEnabled(true);
+					} else {
+						binding.textview92.setText("Canceling...");
+						binding.btnGenerate.setAlpha(0.5f);
+						binding.btnGenerate.setEnabled(false);
+					}
 				} catch (Exception ignored) {}
 			}
 			
