@@ -455,6 +455,7 @@ public class ModelsFragmentActivity extends Fragment {
 					}
 				}
 				
+				final boolean isActiveModelFinal = isActiveModel;
 				btnUseVoice.setOnClickListener(view -> {
 					if (isLoading) return;
 					int clickedPos = holder.getAdapterPosition(); if (clickedPos == androidx.recyclerview.widget.RecyclerView.NO_POSITION) return;
@@ -463,7 +464,7 @@ public class ModelsFragmentActivity extends Fragment {
 						try { com.builtbydeep.sovra.KokoroEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.VoiceEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel(); } catch (Throwable ignored) {} return;
 					}
 					if (isEdgeTts) {
-						if (!isActiveModel) {
+						if (!isActiveModelFinal) {
 							sp1.edit().putString("active_model", com.builtbydeep.sovra.EdgeTtsClient.MODEL_ID)
 									.putString("active_tokens", "")
 									.putString("active_model_name", finalModelName)
