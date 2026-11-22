@@ -107,6 +107,11 @@ public class GenerateFragmentActivity extends Fragment {
 			com.builtbydeep.sovra.EdgeTtsClient.fallbackVoices();
 	private boolean suppressEdgeFilterCallbacks;
 	private boolean edgeVoicesFetched;
+	private volatile java.util.List<com.builtbydeep.sovra.CloudTtsProvider.Voice> cloudVoices =
+			new java.util.ArrayList<>();
+	private volatile boolean cloudVoicesFetched;
+	private String cloudVoiceCacheKey = "";
+	private boolean suppressCloudFilterCallbacks;
 	android.media.AudioManager audioManager;
 	android.media.AudioManager.OnAudioFocusChangeListener focusListener;
 	android.media.AudioFocusRequest focusRequest;
@@ -214,6 +219,8 @@ public class GenerateFragmentActivity extends Fragment {
 				String currentVoicesBin = sp1.getString("active_voices_bin", "");
 				boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
 						.equalsIgnoreCase(currentModelType);
+				String cloudProviderId = cloudProviderFromType(currentModelType);
+				boolean isCloudTts = !cloudProviderId.isEmpty();
 				
 				boolean isPunctOn   = sp3.getBoolean("smart_punct", false);
 				boolean isEmotionOn = sp3.getBoolean("emotion_tags", false);
@@ -225,21 +232,37 @@ public class GenerateFragmentActivity extends Fragment {
 				int currentKokoroVoiceId = sp1.getInt("active_kokoro_speaker", 31);
 				final int currentPiperVoiceId = sp1.getInt("active_piper_speaker", 0); 
 				
-				if (!isEdgeTts && (currentOnnxModel.isEmpty() || currentTokens.isEmpty())) {
+				if (!isEdgeTts && !isCloudTts && (currentOnnxModel.isEmpty() || currentTokens.isEmpty())) {
 					if (getView() != null) {
 						com.google.android.material.snackbar.Snackbar.make(getView(), "Please select a Voice Model from Models tab.", com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
 						.setBackgroundTint(android.graphics.Color.parseColor("#EF4444")).setTextColor(android.graphics.Color.WHITE).show();
 					}
 					return;
 				}
-				if (isEdgeTts && !isNetworkAvailable()) {
+				if ((isEdgeTts || isCloudTts) && !isNetworkAvailable()) {
 					if (getView() != null) {
 						com.google.android.material.snackbar.Snackbar.make(getView(),
-								"Microsoft Edge TTS needs an internet connection.",
+								isEdgeTts ? "Microsoft Edge TTS needs an internet connection."
+										: "Cloud TTS needs an internet connection.",
 								com.google.android.material.snackbar.Snackbar.LENGTH_LONG)
 								.setBackgroundTint(android.graphics.Color.parseColor("#EF4444"))
 								.setTextColor(android.graphics.Color.WHITE).show();
 					}
+					return;
+				}
+				if (isCloudTts && sp1.getString(
+						com.builtbydeep.sovra.CloudTtsClients.getApiKeyPreference(cloudProviderId), "")
+						.trim().isEmpty()) {
+					new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+							.setTitle("API key required")
+							.setMessage("Add your " + sp1.getString("active_model_name", "cloud provider")
+									+ " API key in Settings before generating audio.")
+							.setPositiveButton("Open Settings", (dialog, which) -> {
+								androidx.viewpager2.widget.ViewPager2 pager =
+										requireActivity().findViewById(R.id.viewpager);
+								if (pager != null) pager.setCurrentItem(3, false);
+							})
+							.setNegativeButton("Cancel", null).show();
 					return;
 				}
 				
@@ -248,6 +271,12 @@ public class GenerateFragmentActivity extends Fragment {
 				!currentOnnxModel.equals(lastParams.onnxModel) ||
 				isEdgeTts && !sp1.getString("edge_voice", "hi-IN-SwaraNeural")
 						.equals(sp3.getString("last_edge_voice", "")) ||
+				isCloudTts && (!sp1.getString("cloud_voice_" + cloudProviderId, "")
+						.equals(sp3.getString("last_cloud_voice", ""))
+						|| !sp1.getString(com.builtbydeep.sovra.CloudTtsClients
+								.getSelectedModelPreference(cloudProviderId),
+								com.builtbydeep.sovra.CloudTtsClients.defaultModel(cloudProviderId))
+								.equals(sp3.getString("last_cloud_model", ""))) ||
 				currentKokoroVoiceId != lastParams.kokoroVoiceId ||
 				currentPiperVoiceId != sp3.getInt("last_piper_speaker", -1) || 
 				currentSpeed != lastParams.speed ||
@@ -295,6 +324,15 @@ public class GenerateFragmentActivity extends Fragment {
 					);
 					final String selectedEdgeVoice = sp1.getString("edge_voice", "hi-IN-SwaraNeural");
 					final String selectedEdgeLocale = sp1.getString("edge_locale", "hi-IN");
+					final String selectedCloudProvider = cloudProviderId;
+					final String selectedCloudModel = isCloudTts
+							? sp1.getString(com.builtbydeep.sovra.CloudTtsClients
+									.getSelectedModelPreference(cloudProviderId),
+									com.builtbydeep.sovra.CloudTtsClients.defaultModel(cloudProviderId))
+							: "";
+					final String selectedCloudApiKey = isCloudTts
+							? sp1.getString(com.builtbydeep.sovra.CloudTtsClients
+									.getApiKeyPreference(cloudProviderId), "").trim() : "";
 					final String selectedSupertonicLanguage = com.builtbydeep.sovra.SupertonicEngine.normalizeLanguage(
 							sp1.getString("active_language", "en"));
 					final int selectedSupertonicSteps = Math.max(
@@ -324,6 +362,7 @@ public class GenerateFragmentActivity extends Fragment {
 					final boolean isKokoro = _isKokoroModel(params.modelType);
 					final boolean isSupertonic = params.modelType.equals("supertonic");
 					final boolean isMmsModel = params.modelType.equals("mms");
+					final boolean isCloud = !selectedCloudProvider.isEmpty();
 					final android.content.Context generationContext = requireContext().getApplicationContext();
 					
 					java.util.List<String> sentences = new java.util.ArrayList<>();
@@ -454,6 +493,7 @@ public class GenerateFragmentActivity extends Fragment {
 							} catch (Exception error) {
 								loadResult = error.getMessage() == null
 										? "Microsoft Edge TTS synthesis failed." : error.getMessage();
+								android.util.Log.e("GenerateFragmentActivity", loadResult, error);
 								if (generatedPcmFile != null) generatedPcmFile.delete();
 								if (activeEdgePcmFile == generatedPcmFile) activeEdgePcmFile = null;
 								generatedPcmFile = null;
@@ -471,6 +511,55 @@ public class GenerateFragmentActivity extends Fragment {
 									liveStreamTrack = null;
 									edgeStreamStarted = false;
 								}
+							}
+						} else if (isCloud) {
+							try {
+								if (isCancelled || myGenId != currentGenerationId) {
+									throw new java.io.IOException("Cloud TTS synthesis was cancelled.");
+								}
+								com.builtbydeep.sovra.CloudTtsProvider provider =
+										com.builtbydeep.sovra.CloudTtsClients.get(selectedCloudProvider);
+								java.util.List<com.builtbydeep.sovra.CloudTtsProvider.Voice> fetched =
+										com.builtbydeep.sovra.CloudTtsClients.filterVoicesForModel(
+												selectedCloudProvider, selectedCloudModel, cloudVoices);
+								if (fetched.isEmpty()) {
+									fetched = com.builtbydeep.sovra.CloudTtsClients.filterVoicesForModel(
+											selectedCloudProvider, selectedCloudModel,
+											provider.fetchVoices(selectedCloudApiKey));
+								}
+								String savedVoice = sp1.getString("cloud_voice_" + selectedCloudProvider, "");
+								com.builtbydeep.sovra.CloudTtsProvider.Voice selectedVoice = null;
+								for (com.builtbydeep.sovra.CloudTtsProvider.Voice voice : fetched) {
+									if (voice.id.equals(savedVoice)) {
+										selectedVoice = voice;
+										break;
+									}
+								}
+								if (selectedVoice == null && !fetched.isEmpty()) selectedVoice = fetched.get(0);
+								if (selectedVoice == null) {
+									throw new java.io.IOException("No compatible voices are available for "
+											+ com.builtbydeep.sovra.CloudTtsClients.modelLabel(
+													selectedCloudProvider, selectedCloudModel) + ".");
+								}
+								sp1.edit().putString("cloud_voice_" + selectedCloudProvider, selectedVoice.id)
+										.putString("cloud_locale_" + selectedCloudProvider, selectedVoice.locale)
+										.putString("cloud_region_" + selectedCloudProvider, selectedVoice.region)
+										.apply();
+								java.util.List<com.builtbydeep.sovra.CloudStudioAdapter.Segment> segments =
+										com.builtbydeep.sovra.CloudStudioAdapter.prepare(
+												selectedCloudProvider, selectedCloudModel, params.text,
+												selectedVoice, fetched, sp3);
+								com.builtbydeep.sovra.CloudStudioAdapter.Synthesis synthesis =
+										com.builtbydeep.sovra.CloudStudioAdapter.synthesize(
+												generationContext, selectedCloudProvider, selectedCloudModel,
+												selectedCloudApiKey, segments, isPunctOn, currentSilence, sp1);
+								finalGeneratedPcm = synthesis.pcm;
+								generatedSampleRate = synthesis.sampleRate;
+								loadResult = "Success";
+							} catch (Exception error) {
+								loadResult = error.getMessage() == null
+										? "Cloud TTS synthesis failed." : error.getMessage();
+								android.util.Log.e("GenerateFragmentActivity", loadResult, error);
 							}
 						} else if (isKokoro) {
 							com.builtbydeep.sovra.KokoroEngine.getInstance().setActiveSpeakerId(params.kokoroVoiceId);
@@ -504,7 +593,7 @@ public class GenerateFragmentActivity extends Fragment {
 						final int[] handoffHeadPos = {0};
 						final int[] totalFramesWritten = {0};
 						
-						if ("Success".equals(loadResult) && !isEdgeTts) {
+						if ("Success".equals(loadResult) && !isEdgeTts && !isCloud) {
 							int minBufferSize = android.media.AudioTrack.getMinBufferSize(generatedSampleRate, 
 							android.media.AudioFormat.CHANNEL_OUT_MONO, 
 							android.media.AudioFormat.ENCODING_PCM_16BIT);
@@ -633,7 +722,7 @@ public class GenerateFragmentActivity extends Fragment {
 							} catch (Exception ignored) {}
 						}
 						
-						if (!isEdgeTts) finalGeneratedPcm = pcmStream.toByteArray();
+						if (!isEdgeTts && !isCloud) finalGeneratedPcm = pcmStream.toByteArray();
 						
 						try {
 							pcmStream.close(); 
@@ -727,7 +816,15 @@ public class GenerateFragmentActivity extends Fragment {
 										}
 									} else {
 										final int totalFrames = finalPcm.length / 2;
-										final double totalSeconds = (double) totalFrames / finalSampleRate;
+										final float cloudPlaybackSpeed = isCloudTts
+												&& com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS
+														.equals(selectedCloudProvider)
+												&& com.builtbydeep.sovra.CloudTtsClients.ELEVEN_V3
+														.equals(selectedCloudModel)
+												? com.builtbydeep.sovra.CloudTtsClients.clamp(
+														params.speed, 0.25f, 2.0f) : 1.0f;
+										final double totalSeconds = (double) totalFrames
+												/ finalSampleRate / cloudPlaybackSpeed;
 										final int w = binding.imgWaveform.getWidth() > 0
 												? binding.imgWaveform.getWidth() : 800;
 
@@ -759,6 +856,14 @@ public class GenerateFragmentActivity extends Fragment {
 										.build();
 										
 										audioTrack.write(finalPcm, 0, finalPcm.length);
+										if (isCloudTts) {
+											float playbackPitch = com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY
+													.equals(selectedCloudProvider) ? 1.0f
+													: com.builtbydeep.sovra.CloudTtsClients.clamp(
+															params.pitch, 0.25f, 2.0f);
+											audioTrack.setPlaybackParams(new android.media.PlaybackParams()
+													.setSpeed(cloudPlaybackSpeed).setPitch(playbackPitch));
+										}
 										
 										binding.playheadLine.setVisibility(android.view.View.VISIBLE);
 										
@@ -865,7 +970,8 @@ public class GenerateFragmentActivity extends Fragment {
 								} else {
 									binding.progressGenerating.setVisibility(android.view.View.GONE);
 									binding.imageview65.setVisibility(android.view.View.VISIBLE);
-									binding.textview69.setText("SYNTHESIS FAILED");
+									binding.textview69.setText(isEdgeTts || isCloudTts
+											? finalLoadResult : "SYNTHESIS FAILED");
 									binding.textview69.setTextColor(android.graphics.Color.parseColor("#EF4444"));
 									binding.textview92.setText("Play");
 									binding.imageview52.setImageResource(R.drawable.icon_play_circle);
@@ -873,9 +979,10 @@ public class GenerateFragmentActivity extends Fragment {
 									com.builtbydeep.sovra.system.VoxMediaController.getInstance(getContext()).hideNotification();
 									
 									if (getView() != null) {
-										String userFriendlyMessage = isEdgeTts
+										String userFriendlyMessage = isEdgeTts || isCloudTts
 										? (finalLoadResult == null || finalLoadResult.isEmpty()
-												? "Microsoft Edge TTS could not generate audio."
+												? (isEdgeTts ? "Microsoft Edge TTS could not generate audio."
+														: "Cloud TTS could not generate audio.")
 												: finalLoadResult)
 										: (finalLoadResult != null && (finalLoadResult.contains("missing") || finalLoadResult.contains("empty")))
 												? "Please select a valid voice model to continue."
@@ -893,6 +1000,10 @@ public class GenerateFragmentActivity extends Fragment {
 					}).start();
 					if (isEdgeTts) {
 						sp3.edit().putString("last_edge_voice", selectedEdgeVoice).apply();
+					} else if (isCloudTts) {
+						sp3.edit().putString("last_cloud_voice",
+										sp1.getString("cloud_voice_" + selectedCloudProvider, ""))
+								.putString("last_cloud_model", selectedCloudModel).apply();
 					}
 				}
 				
@@ -1110,6 +1221,7 @@ public class GenerateFragmentActivity extends Fragment {
 		boolean isSupertonic = activeModelType.equalsIgnoreCase("supertonic");
 		boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
 				.equalsIgnoreCase(activeModelType);
+		boolean isCloudTts = !cloudProviderFromType(activeModelType).isEmpty();
 		if (activeModel.isEmpty()) {
 			binding.voiceNameTv.setText("No Model Selected");
 			binding.voiceNameTv.setTextColor(android.graphics.Color.parseColor("#EF4444"));
@@ -1125,6 +1237,11 @@ public class GenerateFragmentActivity extends Fragment {
 				String gender = sp1.getString("edge_voice_gender", "Female");
 				binding.voiceNameTv.setText(
 						com.builtbydeep.sovra.EdgeTtsClient.formatDisplayName(voice, gender));
+			} else if (isCloudTts) {
+				String providerId = cloudProviderFromType(activeModelType);
+				binding.voiceNameTv.setText(sp1.getString("cloud_voice_" + providerId,
+						"").isEmpty() ? "Select cloud voice" : sp1.getString(
+								"cloud_voice_" + providerId, ""));
 			} else if (isSupertonic) {
 				int speakerId = sp1.getInt("active_supertonic_speaker", 0);
 				com.builtbydeep.sovra.SupertonicEngine.getInstance().setActiveSpeakerId(speakerId);
@@ -1851,6 +1968,191 @@ public class GenerateFragmentActivity extends Fragment {
 		return matches;
 	}
 
+	private void updateCloudTtsFilters(boolean isCloudTts) {
+		if (!isCloudTts || binding == null) return;
+		String providerId = cloudProviderFromType(sp1.getString("active_model_type", ""));
+		if (providerId.isEmpty()) return;
+		String modelId = sp1.getString(com.builtbydeep.sovra.CloudTtsClients
+						.getSelectedModelPreference(providerId),
+				com.builtbydeep.sovra.CloudTtsClients.defaultModel(providerId));
+		String apiKey = sp1.getString(com.builtbydeep.sovra.CloudTtsClients
+				.getApiKeyPreference(providerId), "").trim();
+		binding.textview67.setText("CLOUD VOICE MODEL");
+		binding.supertonicControlsLayout.setVisibility(android.view.View.GONE);
+		binding.voiceInfoCard.setVisibility(android.view.View.GONE);
+		binding.opneDropdown.setVisibility(android.view.View.GONE);
+		binding.kokoroVoiceFilters.setVisibility(android.view.View.VISIBLE);
+		if (!com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId) && apiKey.isEmpty()) {
+			binding.voiceNameTv.setText("Add API key in Settings");
+			binding.kokoroRegionSpinner.setAdapter(createKokoroSpinnerAdapter(
+					java.util.Collections.singletonList("API key required")));
+			binding.kokoroVoiceSpinner.setAdapter(createKokoroSpinnerAdapter(
+					java.util.Collections.singletonList("API key required")));
+			return;
+		}
+		String cacheKey = providerId + "|" + modelId + "|" + apiKey.hashCode();
+		if (cacheKey.equals(cloudVoiceCacheKey) && !cloudVoices.isEmpty()) {
+			bindCloudVoices(providerId, modelId, cloudVoices);
+			return;
+		}
+		if (cloudVoicesFetched) return;
+		cloudVoicesFetched = true;
+		new Thread(() -> {
+			try {
+				com.builtbydeep.sovra.CloudTtsProvider provider =
+						com.builtbydeep.sovra.CloudTtsClients.get(providerId);
+				java.util.List<com.builtbydeep.sovra.CloudTtsProvider.Voice> fetched =
+						com.builtbydeep.sovra.CloudTtsClients.filterVoicesForModel(
+								providerId, modelId, provider.fetchVoices(apiKey));
+				cloudVoices = fetched;
+				cloudVoiceCacheKey = cacheKey;
+				cloudVoicesFetched = false;
+				if (getActivity() == null) return;
+				getActivity().runOnUiThread(() -> {
+					if (binding == null || !isAdded()
+							|| !("cloud-" + providerId).equalsIgnoreCase(
+									sp1.getString("active_model_type", ""))
+							|| !modelId.equals(sp1.getString(
+									com.builtbydeep.sovra.CloudTtsClients
+											.getSelectedModelPreference(providerId), modelId))) return;
+					String currentKey = sp1.getString(com.builtbydeep.sovra.CloudTtsClients
+							.getApiKeyPreference(providerId), "").trim();
+					if (!cacheKey.equals(providerId + "|" + modelId + "|" + currentKey.hashCode())) {
+						updateCloudTtsFilters(true);
+						return;
+					}
+					if (fetched.isEmpty()) {
+						binding.voiceNameTv.setText("No compatible voices for this model");
+						return;
+					}
+					bindCloudVoices(providerId, modelId, fetched);
+				});
+			} catch (java.io.IOException error) {
+				cloudVoicesFetched = false;
+				android.util.Log.e("GenerateFragmentActivity",
+						"Unable to fetch " + providerId + " voices.", error);
+				if (getActivity() != null) getActivity().runOnUiThread(() -> {
+					if (binding != null && isAdded()
+							&& ("cloud-" + providerId).equalsIgnoreCase(
+									sp1.getString("active_model_type", ""))) {
+						binding.voiceNameTv.setText("Voice list unavailable");
+						com.google.android.material.snackbar.Snackbar.make(binding.getRoot(),
+								"Voice list unavailable: " + error.getMessage(),
+								com.google.android.material.snackbar.Snackbar.LENGTH_LONG).show();
+					}
+				});
+			}
+		}, "cloud-tts-voices").start();
+	}
+
+	private void bindCloudVoices(String providerId, String modelId,
+								 java.util.List<com.builtbydeep.sovra.CloudTtsProvider.Voice> voices) {
+		java.util.LinkedHashMap<String, java.util.List<com.builtbydeep.sovra.CloudTtsProvider.Voice>> groups =
+				new java.util.LinkedHashMap<>();
+		for (com.builtbydeep.sovra.CloudTtsProvider.Voice voice : voices) {
+			String groupKey = voice.locale + "|" + voice.region;
+			groups.computeIfAbsent(groupKey, ignored -> new java.util.ArrayList<>()).add(voice);
+		}
+		if (groups.isEmpty()) return;
+		java.util.ArrayList<String> regionKeys = new java.util.ArrayList<>(groups.keySet());
+		java.util.ArrayList<String> labels = new java.util.ArrayList<>();
+		for (String key : regionKeys) {
+			String[] pieces = key.split("\\|", 2);
+			String language = java.util.Locale.forLanguageTag(pieces[0])
+					.getDisplayLanguage(java.util.Locale.ENGLISH);
+			String region = pieces.length > 1 && !pieces[1].isEmpty() ? pieces[1] : language;
+			labels.add(region + " (" + pieces[0] + ")");
+		}
+		String regionPreference = "cloud_filter_region_" + providerId;
+		String savedGroup = sp1.getString(regionPreference, "");
+		int selectedRegion = regionKeys.indexOf(savedGroup);
+		if (selectedRegion < 0) {
+			String preferredVoice = sp1.getString("cloud_voice_" + providerId, "");
+			for (int i = 0; i < regionKeys.size(); i++) {
+				for (com.builtbydeep.sovra.CloudTtsProvider.Voice voice : groups.get(regionKeys.get(i))) {
+					if (voice.id.equals(preferredVoice)) {
+						selectedRegion = i;
+						break;
+					}
+				}
+				if (selectedRegion >= 0) break;
+			}
+		}
+		if (selectedRegion < 0) selectedRegion = 0;
+		sp1.edit().putString(regionPreference, regionKeys.get(selectedRegion)).apply();
+		suppressCloudFilterCallbacks = true;
+		binding.kokoroRegionSpinner.setOnItemSelectedListener(null);
+		binding.kokoroVoiceSpinner.setOnItemSelectedListener(null);
+		binding.kokoroRegionSpinner.setAdapter(createKokoroSpinnerAdapter(labels));
+		binding.kokoroRegionSpinner.setSelection(selectedRegion, false);
+		bindCloudVoiceOptions(providerId, groups.get(regionKeys.get(selectedRegion)));
+		suppressCloudFilterCallbacks = false;
+		binding.kokoroRegionSpinner.setOnItemSelectedListener(
+				new android.widget.AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view,
+									   int position, long id) {
+				if (suppressCloudFilterCallbacks || position < 0 || position >= regionKeys.size()) return;
+				sp1.edit().putString(regionPreference, regionKeys.get(position)).apply();
+				bindCloudVoiceOptions(providerId, groups.get(regionKeys.get(position)));
+			}
+			@Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+		});
+	}
+
+	private void bindCloudVoiceOptions(String providerId,
+									   java.util.List<com.builtbydeep.sovra.CloudTtsProvider.Voice> voices) {
+		java.util.ArrayList<String> labels = new java.util.ArrayList<>();
+		String selectedVoice = sp1.getString("cloud_voice_" + providerId, "");
+		int selectedPosition = 0;
+		for (int i = 0; i < voices.size(); i++) {
+			com.builtbydeep.sovra.CloudTtsProvider.Voice voice = voices.get(i);
+			labels.add(voice.displayName());
+			if (voice.id.equals(selectedVoice)) selectedPosition = i;
+		}
+		if (voices.isEmpty()) {
+			binding.voiceNameTv.setText("No compatible voices");
+			return;
+		}
+		com.builtbydeep.sovra.CloudTtsProvider.Voice voice = voices.get(selectedPosition);
+		if (!voice.id.equals(selectedVoice)) {
+			sp1.edit().putString("cloud_voice_" + providerId, voice.id)
+					.putString("cloud_locale_" + providerId, voice.locale)
+					.putString("cloud_region_" + providerId, voice.region).apply();
+		}
+		binding.voiceNameTv.setText(voice.displayName());
+		suppressCloudFilterCallbacks = true;
+		binding.kokoroVoiceSpinner.setAdapter(createKokoroSpinnerAdapter(labels));
+		binding.kokoroVoiceSpinner.setSelection(selectedPosition, false);
+		suppressCloudFilterCallbacks = false;
+		binding.kokoroVoiceSpinner.setOnItemSelectedListener(
+				new android.widget.AdapterView.OnItemSelectedListener() {
+			@Override
+			public void onItemSelected(android.widget.AdapterView<?> parent, android.view.View view,
+									   int position, long id) {
+				if (suppressCloudFilterCallbacks || position < 0 || position >= voices.size()) return;
+				com.builtbydeep.sovra.CloudTtsProvider.Voice selected = voices.get(position);
+				String previous = sp1.getString("cloud_voice_" + providerId, "");
+				sp1.edit().putString("cloud_voice_" + providerId, selected.id)
+						.putString("cloud_locale_" + providerId, selected.locale)
+						.putString("cloud_region_" + providerId, selected.region)
+						.putString("active_language", selected.locale).apply();
+				binding.voiceNameTv.setText(selected.displayName());
+				if (!previous.equals(selected.id)) _forceResetToIdle();
+			}
+			@Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
+		});
+	}
+
+	private static String cloudProviderFromType(String modelType) {
+		if (modelType == null) return "";
+		String normalized = modelType.toLowerCase(java.util.Locale.ROOT);
+		if (normalized.equals("cloud-rime")) return com.builtbydeep.sovra.CloudTtsClients.RIME;
+		if (normalized.equals("cloud-speechify")) return com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY;
+		if (normalized.equals("cloud-elevenlabs")) return com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS;
+		return "";
+	}
+
 	private void bindEdgeVoices(String locale, String preferredVoice) {
 		java.util.List<com.builtbydeep.sovra.EdgeTtsClient.Voice> voices =
 				getEdgeVoicesForLocale(locale);
@@ -1896,6 +2198,7 @@ public class GenerateFragmentActivity extends Fragment {
 		boolean isSupertonic = activeModelType.equalsIgnoreCase("supertonic");
 		boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
 				.equalsIgnoreCase(activeModelType);
+		boolean isCloudTts = !cloudProviderFromType(activeModelType).isEmpty();
 		if (activeModel.isEmpty()) {
 			binding.voiceNameTv.setText("No Model Selected");
 			binding.voiceNameTv.setTextColor(android.graphics.Color.parseColor("#EF4444"));
@@ -1910,6 +2213,11 @@ public class GenerateFragmentActivity extends Fragment {
 				binding.voiceNameTv.setText(com.builtbydeep.sovra.EdgeTtsClient.formatDisplayName(
 						sp1.getString("edge_voice", "hi-IN-SwaraNeural"),
 						sp1.getString("edge_voice_gender", "Female")));
+			} else if (isCloudTts) {
+				String providerId = cloudProviderFromType(activeModelType);
+				binding.voiceNameTv.setText(sp1.getString("cloud_voice_" + providerId,
+						"").isEmpty() ? "Select cloud voice" : sp1.getString(
+								"cloud_voice_" + providerId, ""));
 			} else if (isSupertonic) {
 				int speakerId = sp1.getInt("active_supertonic_speaker", 0);
 				com.builtbydeep.sovra.SupertonicEngine.getInstance().setActiveSpeakerId(speakerId);
@@ -1993,6 +2301,7 @@ public class GenerateFragmentActivity extends Fragment {
 		_updateSupertonicLanguageSelector();
 		updateKokoroVoiceFilters(isKokoro, sp1.getInt("active_kokoro_speaker", 31));
 		updateEdgeTtsFilters(isEdgeTts);
+		updateCloudTtsFilters(isCloudTts);
 		String currentSettingsState = sp3.getFloat("voice_speed", 1.0f) + "_" +
 		sp3.getFloat("voice_pitch", 1.0f) + "_" +
 		sp3.getFloat("silence_scale", 0.2f) + "_" +

@@ -313,6 +313,8 @@ public class ModelsFragmentActivity extends Fragment {
 				boolean isPiperArchive = com.builtbydeep.sovra.PiperModelCatalog.isCatalogModel(item);
 				boolean isEdgeTts = com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE
 						.equalsIgnoreCase(String.valueOf(item.get("type")));
+				String cloudProviderId = cloudProviderForType(String.valueOf(item.get("type")));
+				boolean isCloudTts = !cloudProviderId.isEmpty();
 				
 				String modelName = "Unknown Model";
 				if (item.containsKey("name") && item.get("name") != null && !item.get("name").toString().trim().isEmpty()) modelName = item.get("name").toString();
@@ -329,7 +331,7 @@ public class ModelsFragmentActivity extends Fragment {
 				String currentOnnx = item.containsKey("onnx_path") && item.get("onnx_path") != null ? item.get("onnx_path").toString() : "";
 				String currentModelDir = item.containsKey("model_dir") && item.get("model_dir") != null ? item.get("model_dir").toString() : "";
 				
-				boolean isDownloaded = isEdgeTts || (isSupertonic ? com.builtbydeep.sovra.SupertonicModelFiles.isInstalled(new java.io.File(currentModelDir)) : isKokoro ? com.builtbydeep.sovra.KokoroModelFiles.isInstalled(new java.io.File(currentModelDir)) : isPiperArchive ? com.builtbydeep.sovra.PiperModelCatalog.isInstalled(new java.io.File(currentModelDir)) : !currentOnnx.isEmpty());
+				boolean isDownloaded = isEdgeTts || isCloudTts || (isSupertonic ? com.builtbydeep.sovra.SupertonicModelFiles.isInstalled(new java.io.File(currentModelDir)) : isKokoro ? com.builtbydeep.sovra.KokoroModelFiles.isInstalled(new java.io.File(currentModelDir)) : isPiperArchive ? com.builtbydeep.sovra.PiperModelCatalog.isInstalled(new java.io.File(currentModelDir)) : !currentOnnx.isEmpty());
 				boolean isDownloading = item.containsKey("is_downloading") && item.get("is_downloading").toString().equals("true");
 				int progress = item.containsKey("download_progress") ? Integer.parseInt(item.get("download_progress").toString()) : 0;
 				
@@ -337,7 +339,9 @@ public class ModelsFragmentActivity extends Fragment {
 				
 				// FIXED LOGIC: Simplified check for Active Model (Green Tick & Remove Button)
 				boolean isActiveModel = false;
-				if (isEdgeTts) {
+				if (isCloudTts) {
+					isActiveModel = activeModelType.equalsIgnoreCase("cloud-" + cloudProviderId);
+				} else if (isEdgeTts) {
 					isActiveModel = isEdgeTts && activeModelType.equalsIgnoreCase(com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE);
 				} else if (isSupertonic) {
 					isActiveModel = !currentModelDir.isEmpty() && currentModelDir.equals(activeSupertonicDir) && activeModelType.equalsIgnoreCase(com.builtbydeep.sovra.SupertonicModelFiles.MODEL_TYPE);
@@ -348,8 +352,32 @@ public class ModelsFragmentActivity extends Fragment {
 				android.widget.ImageView selectIv = v.findViewById(R.id.select_iv); android.widget.TextView useRemoveTv = v.findViewById(R.id.use_remove_tv);
 				com.google.android.material.card.MaterialCardView btnUseVoice = v.findViewById(R.id.btn_use_voice); com.google.android.material.card.MaterialCardView btnDelete = v.findViewById(R.id.btn_delete);
 				android.widget.TextView txtModelSub = v.findViewById(R.id.txt_model_sub); android.widget.ProgressBar progressBar = v.findViewById(R.id.progress_download);
+				((android.widget.ImageView) v.findViewById(R.id.imageview9)).setImageResource(R.drawable.icon_delete);
 				
-				if (isEdgeTts) {
+				if (isCloudTts) {
+					((android.widget.TextView) v.findViewById(R.id.onnx_tv)).setText("CLOUD");
+					((android.widget.TextView) v.findViewById(R.id.json_tv)).setText("API");
+					((com.google.android.material.card.MaterialCardView) v.findViewById(R.id.cardview7))
+							.setCardBackgroundColor(android.graphics.Color.parseColor("#252A40"));
+					((com.google.android.material.card.MaterialCardView) v.findViewById(R.id.cardview8))
+							.setCardBackgroundColor(android.graphics.Color.parseColor("#1C3D33"));
+					String selectedCloudModel = sp1.getString(
+							com.builtbydeep.sovra.CloudTtsClients.getSelectedModelPreference(cloudProviderId),
+							com.builtbydeep.sovra.CloudTtsClients.defaultModel(cloudProviderId));
+					txtModelSub.setText(com.builtbydeep.sovra.CloudTtsClients.modelLabel(
+							cloudProviderId, selectedCloudModel) + " • "
+							+ com.builtbydeep.sovra.CloudTtsClients.quotaLabel(
+									cloudProviderId, selectedCloudModel));
+					progressBar.setVisibility(android.view.View.GONE);
+					btnDelete.setVisibility(android.view.View.VISIBLE);
+					android.widget.ImageView tuneIcon = v.findViewById(R.id.imageview9);
+					tuneIcon.setImageResource(R.drawable.icon_tune);
+					tuneIcon.setContentDescription("Choose cloud sub-model");
+					selectIv.setVisibility(isActiveModel ? android.view.View.VISIBLE : android.view.View.GONE);
+					useRemoveTv.setText("Use Voice");
+					btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor(
+							isActiveModel ? "#1C3D33" : "#1D61FF"));
+				} else if (isEdgeTts) {
 					((android.widget.TextView) v.findViewById(R.id.onnx_tv)).setText("CLOUD");
 					((android.widget.TextView) v.findViewById(R.id.json_tv)).setText("ONLINE");
 					((com.google.android.material.card.MaterialCardView) v.findViewById(R.id.cardview7))
@@ -456,12 +484,55 @@ public class ModelsFragmentActivity extends Fragment {
 				}
 				
 				final boolean isActiveModelFinal = isActiveModel;
+				final String capturedCloudProvider = cloudProviderId;
 				btnUseVoice.setOnClickListener(view -> {
 					if (isLoading) return;
 					int clickedPos = holder.getAdapterPosition(); if (clickedPos == androidx.recyclerview.widget.RecyclerView.NO_POSITION) return;
 					if (com.builtbydeep.sovra.KokoroEngine.getInstance().isBusy() || com.builtbydeep.sovra.VoiceEngine.getInstance().isBusy() || com.builtbydeep.sovra.SupertonicEngine.getInstance().isBusy()) {
 						android.widget.Toast.makeText(context, "Please wait, audio generation in progress...", android.widget.Toast.LENGTH_SHORT).show();
 						try { com.builtbydeep.sovra.KokoroEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.VoiceEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel(); } catch (Throwable ignored) {} return;
+					}
+					if (!capturedCloudProvider.isEmpty()) {
+						String apiKey = sp1.getString(
+								com.builtbydeep.sovra.CloudTtsClients.getApiKeyPreference(capturedCloudProvider), "").trim();
+						if (apiKey.isEmpty()) {
+							new com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
+									.setTitle("API key required")
+									.setMessage("Add your " + finalModelName + " API key in Settings to use this cloud voice.")
+									.setPositiveButton("Open Settings", (dialog, which) -> {
+										androidx.viewpager2.widget.ViewPager2 pager =
+												requireActivity().findViewById(R.id.viewpager);
+										if (pager != null) pager.setCurrentItem(3, false);
+									})
+									.setNegativeButton("Cancel", null).show();
+							return;
+						}
+						String modelId = sp1.getString(
+								com.builtbydeep.sovra.CloudTtsClients.getSelectedModelPreference(capturedCloudProvider),
+								com.builtbydeep.sovra.CloudTtsClients.defaultModel(capturedCloudProvider));
+						String voice = sp1.getString("cloud_voice_" + capturedCloudProvider, "");
+						String locale = sp1.getString("cloud_locale_" + capturedCloudProvider, "");
+						if (!isActiveModelFinal) {
+							sp1.edit().putString("active_model", "cloud-" + capturedCloudProvider)
+									.putString("active_tokens", "")
+									.putString("active_model_name", finalModelName)
+									.putString("active_model_type", "cloud-" + capturedCloudProvider)
+									.putString("active_voices_bin", "")
+									.putString("active_language", locale.isEmpty() ? "en" : locale)
+									.putString("active_supertonic_dir", "")
+									.putInt("active_speaker_count", 1).apply();
+							if (voice.isEmpty()) {
+								String defaultVoice = com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS.equals(capturedCloudProvider)
+										? "21m00Tcm4TlvDq8ikWAM"
+										: com.builtbydeep.sovra.CloudTtsClients.RIME.equals(capturedCloudProvider)
+												? "astra" : "";
+								sp1.edit().putString("cloud_voice_" + capturedCloudProvider, defaultVoice)
+										.putString("cloud_locale_" + capturedCloudProvider, "en").apply();
+							}
+						}
+						if (binding.recyclerviewModels.getAdapter() != null)
+							binding.recyclerviewModels.getAdapter().notifyDataSetChanged();
+						return;
 					}
 					if (isEdgeTts) {
 						if (!isActiveModelFinal) {
@@ -626,6 +697,11 @@ public class ModelsFragmentActivity extends Fragment {
 				v.findViewById(R.id.btn_delete).setOnClickListener(view -> {
 					int safePos = holder.getAdapterPosition(); if (safePos == androidx.recyclerview.widget.RecyclerView.NO_POSITION) return;
 					java.util.HashMap<String, Object> itemToDelete = modelList.get(safePos);
+					String providerId = cloudProviderForType(String.valueOf(itemToDelete.get("type")));
+					if (!providerId.isEmpty()) {
+						showCloudModelDialog(providerId);
+						return;
+					}
 					String onnxToDelete = itemToDelete.containsKey("onnx_path") && itemToDelete.get("onnx_path") != null ? itemToDelete.get("onnx_path").toString() : ""; String tokensToDelete = itemToDelete.containsKey("tokens_path") && itemToDelete.get("tokens_path") != null ? itemToDelete.get("tokens_path").toString() : ""; String voicesToDelete = itemToDelete.containsKey("voices_bin_path") && itemToDelete.get("voices_bin_path") != null ? itemToDelete.get("voices_bin_path").toString() : "";
 					if (onnxToDelete.equals(sp1.getString("active_model", ""))) {
 						try { com.builtbydeep.sovra.VoiceEngine.getInstance().destroy(); try { com.builtbydeep.sovra.KokoroEngine.getInstance().destroy(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.SupertonicEngine.getInstance().destroy(); } catch (Throwable ignored) {} } catch (Throwable ignored) {}
@@ -741,7 +817,7 @@ public class ModelsFragmentActivity extends Fragment {
 		if (masterList == null) masterList = new java.util.ArrayList<>(); String currentSort = sp1.getString("sort_preference", "all_models"); String currentLanguage = sp1.getString("language_filter", "All Languages");
 		modelList.clear();
 		for (java.util.HashMap<String, Object> item : masterList) {
-			String onnxPath = item.containsKey("onnx_path") && item.get("onnx_path") != null ? item.get("onnx_path").toString() : ""; boolean isInstalled = !onnxPath.isEmpty() || com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE.equalsIgnoreCase(String.valueOf(item.get("type")));
+			String onnxPath = item.containsKey("onnx_path") && item.get("onnx_path") != null ? item.get("onnx_path").toString() : ""; boolean isInstalled = !onnxPath.isEmpty() || com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE.equalsIgnoreCase(String.valueOf(item.get("type"))) || !cloudProviderForType(String.valueOf(item.get("type"))).isEmpty();
 			String itemLang = item.containsKey("language") && item.get("language") != null ? item.get("language").toString() : ""; boolean isSupertonicModel = item.containsKey("type") && item.get("type").toString().equalsIgnoreCase(com.builtbydeep.sovra.SupertonicModelFiles.MODEL_TYPE);
 			boolean languageMatch = currentLanguage.equals("All Languages") || currentLanguage.equals(itemLang) || isSupertonicModel;
 			if (languageMatch) {
@@ -811,6 +887,15 @@ public class ModelsFragmentActivity extends Fragment {
 		builtInUrls.add(edgeUrl);
 		HashMap<String, Object> existingEdge = _findModelByUrl(existingModels, edgeUrl);
 		orderedModels.add(_resetCatalogEntry(edgeEntry, existingEdge));
+		for (String providerId : new String[]{com.builtbydeep.sovra.CloudTtsClients.RIME,
+				com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY,
+				com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS}) {
+			HashMap<String, Object> cloudEntry = createCloudCatalogEntry(providerId);
+			String cloudUrl = String.valueOf(cloudEntry.get("model_url"));
+			builtInUrls.add(cloudUrl);
+			HashMap<String, Object> existingCloud = _findModelByUrl(existingModels, cloudUrl);
+			orderedModels.add(existingCloud == null ? cloudEntry : existingCloud);
+		}
 		for (int i = 1; i < 3; i++) {
 			HashMap<String, Object> canonical = builtInEntries.get(i); String url = String.valueOf(canonical.get("model_url")); builtInUrls.add(url); HashMap<String, Object> existing = null;
 			if (i == 2) { for (HashMap<String, Object> candidate : existingModels) { if (com.builtbydeep.sovra.SupertonicModelFiles.isSupertonicModel(candidate)) { existing = candidate; break; } } } else existing = _findModelByUrl(existingModels, url);
@@ -831,6 +916,63 @@ public class ModelsFragmentActivity extends Fragment {
 			if ((!isMms && !isUserModel) || (isMms && retainedUrls.contains(url))) continue; if (!url.isEmpty() && !retainedUrls.add(url)) continue; orderedModels.add(existing);
 		}
 		modelList.clear(); modelList.addAll(orderedModels);
+	}
+
+	private static HashMap<String, Object> createCloudCatalogEntry(String providerId) {
+		HashMap<String, Object> entry = new HashMap<>();
+		String name = com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId) ? "Rime AI"
+				: com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId) ? "SpeechifyAI"
+				: "ElevenLabs";
+		entry.put("name", name);
+		entry.put("type", "cloud-" + providerId);
+		entry.put("language", "Cloud");
+		entry.put("gender", "API");
+		entry.put("size", "0 MB");
+		entry.put("model_url", "cloud-provider-" + providerId);
+		return entry;
+	}
+
+	private static String cloudProviderForType(String type) {
+		if (type == null) return "";
+		String normalized = type.toLowerCase(java.util.Locale.ROOT);
+		if (normalized.equals("cloud-rime")) return com.builtbydeep.sovra.CloudTtsClients.RIME;
+		if (normalized.equals("cloud-speechify")) return com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY;
+		if (normalized.equals("cloud-elevenlabs")) return com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS;
+		return "";
+	}
+
+	private void showCloudModelDialog(String providerId) {
+		String[] modelIds;
+		if (com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId)) {
+			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.RIME_CODA,
+					com.builtbydeep.sovra.CloudTtsClients.RIME_MIST};
+		} else if (com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId)) {
+			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_35,
+					com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_32};
+		} else {
+			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.ELEVEN_FLASH,
+					com.builtbydeep.sovra.CloudTtsClients.ELEVEN_V3};
+		}
+		String[] labels = new String[modelIds.length];
+		for (int i = 0; i < modelIds.length; i++) {
+			labels[i] = com.builtbydeep.sovra.CloudTtsClients.modelLabel(providerId, modelIds[i])
+					+ " • " + com.builtbydeep.sovra.CloudTtsClients.languageLabel(providerId, modelIds[i])
+					+ " • " + com.builtbydeep.sovra.CloudTtsClients.quotaLabel(providerId, modelIds[i]);
+		}
+		String pref = com.builtbydeep.sovra.CloudTtsClients.getSelectedModelPreference(providerId);
+		String selected = sp1.getString(pref, com.builtbydeep.sovra.CloudTtsClients.defaultModel(providerId));
+		int current = java.util.Arrays.asList(modelIds).indexOf(selected);
+		new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+				.setTitle("Choose " + (providerId.equals(com.builtbydeep.sovra.CloudTtsClients.RIME)
+						? "Rime" : providerId.equals(com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY)
+						? "Speechify" : "ElevenLabs") + " model")
+				.setSingleChoiceItems(labels, current, (dialog, which) -> {
+					sp1.edit().putString(pref, modelIds[which]).apply();
+					if (binding.recyclerviewModels.getAdapter() != null)
+						binding.recyclerviewModels.getAdapter().notifyDataSetChanged();
+					dialog.dismiss();
+				})
+				.setNegativeButton("Cancel", null).show();
 	}
 
 	private HashMap<String, Object> _findModelByUrl(java.util.List<HashMap<String, Object>> models, String url) {

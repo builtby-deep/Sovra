@@ -24,6 +24,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.TimeZone;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -59,6 +61,8 @@ public final class EdgeTtsClient {
                     + "?trustedclienttoken=" + TRUSTED_CLIENT_TOKEN;
     private static final String WEBSOCKET_URL =
             "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1";
+    private static final Pattern RESPONSE_STATUS_CODE =
+            Pattern.compile("(?i)statusCode\\s*[:=]\\s*(\\d{3})");
     private static final String ORIGIN =
             "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold";
     static final String USER_AGENT =
@@ -210,7 +214,8 @@ public final class EdgeTtsClient {
                         adjustClockSkewSeconds(((HttpStatusException) error).serverDate);
                         continue;
                     } catch (IOException skewError) {
-                        lastError = skewError;
+                        error.addSuppressed(skewError);
+                        lastError = error;
                     }
                 }
                 break;
@@ -431,7 +436,12 @@ public final class EdgeTtsClient {
             } catch (HttpStatusException error) {
                 lastError = error;
                 if (error.statusCode == 403 && attempt == 0) {
-                    adjustClockSkewSeconds(error.serverDate);
+                    try {
+                        adjustClockSkewSeconds(error.serverDate);
+                    } catch (IOException skewError) {
+                        error.addSuppressed(skewError);
+                        throw error;
+                    }
                     continue;
                 }
                 if (error.statusCode == 429 && attempt < 2) {
@@ -594,6 +604,7 @@ public final class EdgeTtsClient {
         ByteArrayOutputStream mp3 = new ByteArrayOutputStream();
         CountDownLatch completed = new CountDownLatch(1);
         AtomicReference<IOException> failure = new AtomicReference<>();
+        AtomicReference<String> responseDate = new AtomicReference<>();
         SimpleDateFormat timestampFormat =
                 new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US);
         timestampFormat.setTimeZone(TimeZone.getTimeZone("UTC"));
@@ -618,6 +629,7 @@ public final class EdgeTtsClient {
         WebSocket socket = WEBSOCKET_HTTP.newWebSocket(request, new WebSocketListener() {
             @Override
             public void onOpen(WebSocket webSocket, Response response) {
+                responseDate.set(response.header("Date"));
                 if (isStopped(operation, shouldContinue)) {
                     webSocket.cancel();
                     completed.countDown();
@@ -657,8 +669,18 @@ public final class EdgeTtsClient {
                 if (message.contains("Path:turn.end")) {
                     completed.countDown();
                     webSocket.close(1000, "Synthesis complete");
-                } else if (message.contains("Path:response") && message.contains("403")) {
-                    failure.set(new IOException("Microsoft Edge TTS rejected the connection."));
+                } else if (message.contains("Path:response")) {
+                    int statusCode = responseStatusCode(message);
+                    if (statusCode < 0 && message.contains("403")) statusCode = 403;
+                    if (statusCode < 400) return;
+                    String reason = "Microsoft Edge TTS returned an error response"
+                            + (statusCode < 0 ? "" : " (HTTP " + statusCode + ")")
+                            + ": " + message.trim();
+                    IOException rejection = statusCode == 403
+                            ? new HttpStatusException(403, responseDate.get(), reason)
+                            : new IOException(reason);
+                    android.util.Log.e("EdgeTtsClient", rejection.getMessage(), rejection);
+                    failure.set(rejection);
                     completed.countDown();
                     webSocket.cancel();
                 }
@@ -688,12 +710,28 @@ public final class EdgeTtsClient {
 
             @Override
             public void onFailure(WebSocket webSocket, Throwable error, Response response) {
-                String reason = response != null
-                        ? "Microsoft Edge TTS connection failed (HTTP " + response.code() + ")."
-                        : "Microsoft Edge TTS connection failed: " + error.getMessage();
+                String reason;
+                if (response != null) {
+                    String serverMessage = response.message();
+                    if (response.body() != null) {
+                        try {
+                            String responseBody = response.body().string().trim();
+                            if (!responseBody.isEmpty()) serverMessage += ": " + responseBody;
+                        } catch (IOException bodyError) {
+                            error.addSuppressed(bodyError);
+                        }
+                    }
+                    reason = "Microsoft Edge TTS connection failed (HTTP "
+                            + response.code() + "): " + serverMessage;
+                } else {
+                    reason = "Microsoft Edge TTS connection failed: "
+                            + (error.getMessage() == null ? error.getClass().getSimpleName()
+                            : error.getMessage());
+                }
                 IOException responseError = response != null
                         ? new HttpStatusException(response.code(), response.header("Date"), reason, error)
                         : new IOException(reason, error);
+                android.util.Log.e("EdgeTtsClient", reason, responseError);
                 failure.compareAndSet(null, responseError);
                 completed.countDown();
             }
@@ -752,6 +790,16 @@ public final class EdgeTtsClient {
                 Thread.currentThread().interrupt();
                 return;
             }
+        }
+    }
+
+    private static int responseStatusCode(String message) {
+        Matcher matcher = RESPONSE_STATUS_CODE.matcher(message);
+        if (!matcher.find()) return -1;
+        try {
+            return Integer.parseInt(matcher.group(1));
+        } catch (NumberFormatException ignored) {
+            return -1;
         }
     }
 
