@@ -33,7 +33,7 @@ import okhttp3.Response;
 public final class WitAiTtsProvider implements CloudTtsProvider {
     public static final String ID = "witai";
     public static final int CHUNK_LIMIT = 250;
-    private static final String ENDPOINT = "https://api.wit.ai/synthesize";
+    private static final String ENDPOINT = "https://api.wit.ai/synthesize?v=20240304";
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final Pattern BRACKET_TAG = Pattern.compile("\\[[^\\]]*\\]");
     private static final Pattern ABBREVIATION = Pattern.compile(
@@ -76,11 +76,16 @@ public final class WitAiTtsProvider implements CloudTtsProvider {
 
     public byte[] synthesize(String apiKey, Voice voice, String text, int voiceStyle)
             throws IOException {
+        String cleanKey = apiKey == null ? "" : apiKey.trim();
+        String cleanText = sanitizeText(text);
+        if (!hasSpeakableContent(cleanText)) {
+            throw new IOException("No speakable text to synthesize.");
+        }
         JSONObject body = new JSONObject();
         try {
-            body.put("q", text);
+            body.put("q", cleanText);
             body.put("voice", voice.id);
-            body.put("style", styleFor(voiceStyle));
+            // style removed
         } catch (org.json.JSONException error) {
             throw new IOException("Unable to prepare the Wit.ai request.", error);
         }
@@ -90,7 +95,7 @@ public final class WitAiTtsProvider implements CloudTtsProvider {
             try {
                 awaitRequestSlot();
                 Request request = new Request.Builder().url(ENDPOINT)
-                        .header("Authorization", "Bearer " + apiKey)
+                        .header("Authorization", "Bearer " + cleanKey)
                         .header("Accept", "audio/mpeg")
                         .header("Content-Type", "application/json")
                         .post(RequestBody.create(body.toString(), JSON)).build();
@@ -109,8 +114,9 @@ public final class WitAiTtsProvider implements CloudTtsProvider {
                         }
                         return audio;
                     }
+                    String detail = response.body() != null ? response.body().string().trim() : "";
                     IOException error = new IOException("Wit.ai request failed (HTTP "
-                            + response.code() + ").");
+                            + response.code() + ")" + (detail.isEmpty() ? "." : ": " + detail));
                     if (response.code() != 429 && response.code() < 500) {
                         throw new NonRetryableException(error);
                     }
@@ -144,7 +150,7 @@ public final class WitAiTtsProvider implements CloudTtsProvider {
                 long now = System.currentTimeMillis();
                 long waitMillis = nextRequestAt - now;
                 if (waitMillis <= 0L) {
-                    nextRequestAt = now + 1000L;
+                    nextRequestAt = now + 1050L;
                     return;
                 }
                 try {
@@ -316,11 +322,18 @@ public final class WitAiTtsProvider implements CloudTtsProvider {
                 if (Character.isHighSurrogate(remaining.charAt(end - 1))) end--;
                 chunk = remaining.substring(0, end);
             }
-            chunks.add(chunk);
+            if (hasSpeakableContent(chunk)) chunks.add(chunk);
             remaining = remaining.substring(end).trim();
         }
-        if (!remaining.isEmpty()) chunks.add(remaining);
+        if (!remaining.isEmpty() && hasSpeakableContent(remaining)) chunks.add(remaining);
         return Collections.unmodifiableList(chunks);
+    }
+
+    private static boolean hasSpeakableContent(String text) {
+        for (int i = 0; i < text.length(); i++) {
+            if (Character.isLetterOrDigit(text.charAt(i))) return true;
+        }
+        return false;
     }
 
     private static int chooseBoundary(String text, int limit) {
