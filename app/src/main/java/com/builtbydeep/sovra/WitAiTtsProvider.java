@@ -34,7 +34,7 @@ public final class WitAiTtsProvider implements CloudTtsProvider {
     public static final String ID = "witai";
     public static final int CHUNK_LIMIT = 250;
     private static final String ENDPOINT = "https://api.wit.ai/synthesize?v=20240304";
-    private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
+    private static final MediaType JSON = MediaType.get("application/json");
     private static final Pattern BRACKET_TAG = Pattern.compile("\\[[^\\]]*\\]");
     private static final Pattern ABBREVIATION = Pattern.compile(
             "(?i)(?:mr|mrs|ms|dr|prof|sr|jr|st|vs|etc|e\\.g|i\\.e)\\.$");
@@ -98,7 +98,7 @@ public final class WitAiTtsProvider implements CloudTtsProvider {
                         .header("Authorization", "Bearer " + cleanKey)
                         .header("Accept", "audio/mpeg")
                         .header("Content-Type", "application/json")
-                        .post(RequestBody.create(body.toString(), JSON)).build();
+                        .post(RequestBody.create(body.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), JSON)).build();
                 Call call = HTTP.newCall(request);
                 activeCalls.add(call);
                 try (Response response = call.execute()) {
