@@ -832,13 +832,7 @@ public class GenerateFragmentActivity extends Fragment {
 										}
 									} else {
 										final int totalFrames = finalPcm.length / 2;
-										final float cloudPlaybackSpeed = isCloudTts
-												&& com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS
-														.equals(selectedCloudProvider)
-												&& com.builtbydeep.sovra.CloudTtsClients.ELEVEN_V3
-														.equals(selectedCloudModel)
-												? com.builtbydeep.sovra.CloudTtsClients.clamp(
-														params.speed, 0.25f, 2.0f) : 1.0f;
+										final float cloudPlaybackSpeed = isCloudTts && ((com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS.equals(selectedCloudProvider) && com.builtbydeep.sovra.CloudTtsClients.ELEVEN_V3.equals(selectedCloudModel)) || com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(selectedCloudProvider)) ? com.builtbydeep.sovra.CloudTtsClients.clamp(params.speed, 0.25f, 2.0f) : 1.0f;
 										final double totalSeconds = (double) totalFrames
 												/ finalSampleRate / cloudPlaybackSpeed;
 										final int w = binding.imgWaveform.getWidth() > 0
@@ -891,9 +885,10 @@ public class GenerateFragmentActivity extends Fragment {
 										durIntent.putExtra("isLibraryMode", false);
 										durIntent.putExtra("duration", (long)(totalSeconds * 1000));
 										
-										if (isEdgeTts || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
-											audioTrack.setPlaybackHeadPosition(isEdgeTts ? 0 : finalHead);
-											audioTrack.play();
+										boolean autoStart = isEdgeTts || (isCloudTts && finalHead == 0);
+if (autoStart || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
+    audioTrack.setPlaybackHeadPosition(autoStart ? 0 : finalHead);
+    audioTrack.play();
 											
 											binding.imageview52.setImageResource(R.drawable.icon_pause_circle);
 											binding.textview92.setText("Pause");
@@ -904,7 +899,7 @@ public class GenerateFragmentActivity extends Fragment {
 												getContext().startService(durIntent);
 											}
 											
-											float progressFrac = isEdgeTts ? 0f : (float) finalHead / totalFrames;
+											float progressFrac = autoStart ? 0f : (float) finalHead / totalFrames;
 											float startX = progressFrac * w;
 											binding.playheadLine.setTranslationX(startX);
 											
