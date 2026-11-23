@@ -406,172 +406,51 @@
 				android:src="@drawable/icon_keyboard_arrow_right"
 				android:scaleType="fitXY" />
 		</LinearLayout>
+		<LinearLayout
+			android:id="@+id/api_keys_row"
+			android:layout_width="match_parent"
+			android:layout_height="wrap_content"
+			android:layout_marginTop="16dp"
+			android:gravity="center_vertical"
+			android:orientation="horizontal">
+			<ImageView
+				android:layout_width="24dp"
+				android:layout_height="24dp"
+				android:src="@drawable/icon_cloud_key"
+				android:scaleType="fitXY"
+				app:tint="#94A3B8" />
+			<LinearLayout
+				android:layout_width="0dp"
+				android:layout_height="wrap_content"
+				android:orientation="vertical"
+				android:layout_weight="1"
+				android:layout_marginStart="16dp">
+				<TextView
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:text="API Keys"
+					android:textSize="16sp"
+					android:textColor="#FFFFFF" />
+				<TextView
+					android:id="@+id/api_keys_subtitle"
+					android:layout_width="wrap_content"
+					android:layout_height="wrap_content"
+					android:text="Manage cloud providers • 0 active"
+					android:textSize="12sp"
+					android:textColor="#94A3B8" />
+			</LinearLayout>
+			<ImageView
+				android:layout_width="20dp"
+				android:layout_height="20dp"
+				android:src="@drawable/icon_keyboard_arrow_right"
+				android:scaleType="fitXY" />
+		</LinearLayout>
 		<View
 			android:id="@+id/view35"
 			android:layout_width="match_parent"
 			android:layout_height="1dp"
 			android:background="#1A2234"
 			android:layout_marginVertical="28dp" />
-		<TextView
-			android:layout_width="wrap_content"
-			android:layout_height="wrap_content"
-			android:text="CLOUD API KEYS &amp; QUOTA"
-			android:textSize="12sp"
-			android:textStyle="bold"
-			android:textColor="#00E5FF" />
-		<LinearLayout
-			android:id="@+id/cloud_rime_card"
-			android:layout_width="match_parent"
-			android:layout_height="wrap_content"
-			android:layout_marginTop="12dp"
-			android:orientation="vertical"
-			android:padding="12dp"
-			android:background="#1A1D2E">
-			<TextView
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:text="Rime AI"
-				android:textColor="#F1F5F9"
-				android:textStyle="bold" />
-			<EditText
-				android:id="@+id/cloud_rime_key"
-				android:layout_width="match_parent"
-				android:layout_height="48dp"
-				android:hint="API key"
-				android:inputType="textPassword"
-				android:singleLine="true"
-				android:textColor="#F1F5F9"
-				android:textColorHint="#64748B" />
-			<Button
-				android:id="@+id/cloud_rime_save"
-				android:layout_width="wrap_content"
-				android:layout_height="40dp"
-				android:text="Save key" />
-			<TextView
-				android:id="@+id/cloud_rime_used"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:layout_marginTop="6dp"
-				android:text="Used: 0 / 1M chars"
-				android:textColor="#94A3B8"
-				android:textSize="12sp" />
-			<ProgressBar
-				android:id="@+id/cloud_rime_progress"
-				style="?android:progressBarStyleHorizontal"
-				android:layout_width="match_parent"
-				android:layout_height="4dp"
-				android:max="100"
-				android:progress="0"
-				android:progressTint="#4A9EFF"
-				android:progressBackgroundTint="#2A2F45" />
-			<Button
-				android:id="@+id/cloud_rime_reset"
-				android:layout_width="wrap_content"
-				android:layout_height="40dp"
-				android:text="Reset" />
-		</LinearLayout>
-		<LinearLayout
-			android:id="@+id/cloud_speechify_card"
-			android:layout_width="match_parent"
-			android:layout_height="wrap_content"
-			android:layout_marginTop="10dp"
-			android:orientation="vertical"
-			android:padding="12dp"
-			android:background="#1A1D2E">
-			<TextView
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:text="SpeechifyAI"
-				android:textColor="#F1F5F9"
-				android:textStyle="bold" />
-			<EditText
-				android:id="@+id/cloud_speechify_key"
-				android:layout_width="match_parent"
-				android:layout_height="48dp"
-				android:hint="API key"
-				android:inputType="textPassword"
-				android:singleLine="true"
-				android:textColor="#F1F5F9"
-				android:textColorHint="#64748B" />
-			<Button
-				android:id="@+id/cloud_speechify_save"
-				android:layout_width="wrap_content"
-				android:layout_height="40dp"
-				android:text="Save key" />
-			<TextView
-				android:id="@+id/cloud_speechify_used"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:layout_marginTop="6dp"
-				android:text="Used: 0 / 333K chars"
-				android:textColor="#94A3B8"
-				android:textSize="12sp" />
-			<ProgressBar
-				android:id="@+id/cloud_speechify_progress"
-				style="?android:progressBarStyleHorizontal"
-				android:layout_width="match_parent"
-				android:layout_height="4dp"
-				android:max="100"
-				android:progress="0"
-				android:progressTint="#4A9EFF"
-				android:progressBackgroundTint="#2A2F45" />
-			<Button
-				android:id="@+id/cloud_speechify_reset"
-				android:layout_width="wrap_content"
-				android:layout_height="40dp"
-				android:text="Reset" />
-		</LinearLayout>
-		<LinearLayout
-			android:id="@+id/cloud_elevenlabs_card"
-			android:layout_width="match_parent"
-			android:layout_height="wrap_content"
-			android:layout_marginTop="10dp"
-			android:orientation="vertical"
-			android:padding="12dp"
-			android:background="#1A1D2E">
-			<TextView
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:text="ElevenLabs"
-				android:textColor="#F1F5F9"
-				android:textStyle="bold" />
-			<EditText
-				android:id="@+id/cloud_elevenlabs_key"
-				android:layout_width="match_parent"
-				android:layout_height="48dp"
-				android:hint="API key"
-				android:inputType="textPassword"
-				android:singleLine="true"
-				android:textColor="#F1F5F9"
-				android:textColorHint="#64748B" />
-			<Button
-				android:id="@+id/cloud_elevenlabs_save"
-				android:layout_width="wrap_content"
-				android:layout_height="40dp"
-				android:text="Save key" />
-			<TextView
-				android:id="@+id/cloud_elevenlabs_used"
-				android:layout_width="wrap_content"
-				android:layout_height="wrap_content"
-				android:layout_marginTop="6dp"
-				android:text="Used: 0 / 20K chars"
-				android:textColor="#94A3B8"
-				android:textSize="12sp" />
-			<ProgressBar
-				android:id="@+id/cloud_elevenlabs_progress"
-				style="?android:progressBarStyleHorizontal"
-				android:layout_width="match_parent"
-				android:layout_height="4dp"
-				android:max="100"
-				android:progress="0"
-				android:progressTint="#4A9EFF"
-				android:progressBackgroundTint="#2A2F45" />
-			<Button
-				android:id="@+id/cloud_elevenlabs_reset"
-				android:layout_width="wrap_content"
-				android:layout_height="40dp"
-				android:text="Reset" />
-		</LinearLayout>
 		<TextView
 			android:id="@+id/textview66"
 			android:layout_width="wrap_content"

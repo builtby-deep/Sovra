@@ -58,6 +58,9 @@
 		<activity
 			android:name=".EpubReaderActivity"
 			android:exported="false" />
+		<activity
+			android:name=".ApiKeysActivity"
+			android:exported="false" />
         
 		<activity
 			android:name=".DebugActivity"

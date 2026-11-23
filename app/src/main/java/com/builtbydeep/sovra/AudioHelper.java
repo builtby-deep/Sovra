@@ -9,6 +9,23 @@ import java.io.FileOutputStream;
 
 public class AudioHelper {
 
+    public static String saveMp3File(byte[] mp3Data, String fileName, Context context) {
+        if (mp3Data == null || mp3Data.length == 0) return "";
+        try {
+            File musicDir = new File(android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_MUSIC), "VoxEngine");
+            if (!musicDir.exists() && !musicDir.mkdirs()) return "";
+            File mp3File = new File(musicDir, fileName);
+            try (BufferedOutputStream output = new BufferedOutputStream(new FileOutputStream(mp3File))) {
+                output.write(mp3Data);
+            }
+            return mp3File.getAbsolutePath();
+        } catch (java.io.IOException error) {
+            android.util.Log.e("AudioHelper", "Unable to save MP3 audio.", error);
+            return "";
+        }
+    }
+
     // ✅ FIX: sampleRate parameter add kiya — Kokoro=24000, Piper/Vits=22050
     public static String saveWavFile(byte[] pcmData, String fileName, int sampleRate, Context context) {
         if (pcmData == null) return "";

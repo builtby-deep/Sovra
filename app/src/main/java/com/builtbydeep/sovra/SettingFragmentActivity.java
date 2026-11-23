@@ -167,6 +167,8 @@ public class SettingFragmentActivity extends Fragment {
 				startActivity(intent1);
 			}
 		});
+		binding.apiKeysRow.setOnClickListener(view ->
+				startActivity(new Intent(requireContext(), ApiKeysActivity.class)));
 	}
 	
 	private void initializeLogic() {
@@ -389,15 +391,7 @@ public class SettingFragmentActivity extends Fragment {
 			}
 		});
 
-		bindCloudProviderSettings(com.builtbydeep.sovra.CloudTtsClients.RIME,
-				binding.cloudRimeKey, binding.cloudRimeSave, binding.cloudRimeUsed,
-				binding.cloudRimeProgress, binding.cloudRimeReset);
-		bindCloudProviderSettings(com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY,
-				binding.cloudSpeechifyKey, binding.cloudSpeechifySave, binding.cloudSpeechifyUsed,
-				binding.cloudSpeechifyProgress, binding.cloudSpeechifyReset);
-		bindCloudProviderSettings(com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS,
-				binding.cloudElevenlabsKey, binding.cloudElevenlabsSave, binding.cloudElevenlabsUsed,
-				binding.cloudElevenlabsProgress, binding.cloudElevenlabsReset);
+		updateApiKeysSubtitle();
 		
 		// 6. Storage & Models Calculation
 		String savedData = sp1.getString("models_data", "[]");
@@ -467,7 +461,25 @@ public class SettingFragmentActivity extends Fragment {
 					}
 				}
 				
+				java.util.HashMap<String, String> savedApiKeys = new java.util.HashMap<>();
+				for (String providerId : new String[]{CloudTtsClients.RIME, CloudTtsClients.SPEECHIFY,
+						CloudTtsClients.ELEVENLABS, CloudTtsClients.WITAI}) {
+					String preferenceKey = CloudTtsClients.getApiKeyPreference(providerId);
+					String savedKey = sp1.getString(preferenceKey, "");
+					if (!savedKey.isEmpty()) savedApiKeys.put(preferenceKey, savedKey);
+				}
 				sp1.edit().clear().apply();
+				sp1.edit().putString("models_data", "[]").putString("active_model", "")
+						.putString("active_model_type", "").putString("active_model_name", "")
+						.putString("active_tokens", "").putString("active_voices_bin", "")
+						.putString("active_language", "").putString("active_supertonic_dir", "")
+						.apply();
+				android.content.SharedPreferences.Editor restoredKeys = sp1.edit();
+				for (java.util.Map.Entry<String, String> entry : savedApiKeys.entrySet()) {
+					restoredKeys.putString(entry.getKey(), entry.getValue());
+				}
+				restoredKeys.apply();
+				updateApiKeysSubtitle();
 				sp3.edit().clear().apply(); 
 				
 				binding.textview68.setText("0 local models imported");
@@ -491,54 +503,23 @@ public class SettingFragmentActivity extends Fragment {
 		
 	}
 
-	private void bindCloudProviderSettings(String providerId, EditText apiKeyInput,
-										  View saveButton, TextView usageText,
-										  ProgressBar usageProgress, View resetButton) {
-		apiKeyInput.setText(sp1.getString(
-				com.builtbydeep.sovra.CloudTtsClients.getApiKeyPreference(providerId), ""));
-		saveButton.setOnClickListener(view -> {
-			String apiKey = apiKeyInput.getText().toString().trim();
-			sp1.edit().putString(com.builtbydeep.sovra.CloudTtsClients
-					.getApiKeyPreference(providerId), apiKey).apply();
-			Toast.makeText(getContext(), apiKey.isEmpty() ? "API key cleared." : "API key saved.",
-					Toast.LENGTH_SHORT).show();
-		});
-		resetButton.setOnClickListener(view -> {
-			com.builtbydeep.sovra.CloudStudioAdapter.resetMonthlyUsage(sp1, providerId);
-			updateCloudUsage(providerId, usageText, usageProgress);
-		});
-		updateCloudUsage(providerId, usageText, usageProgress);
-	}
-
-	private void updateCloudUsage(String providerId, TextView usageText, ProgressBar usageProgress) {
-		String modelId = sp1.getString(
-				com.builtbydeep.sovra.CloudTtsClients.getSelectedModelPreference(providerId),
-				com.builtbydeep.sovra.CloudTtsClients.defaultModel(providerId));
-		int quota;
-		if (com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId)) {
-			quota = com.builtbydeep.sovra.CloudTtsClients.RIME_MIST.equals(modelId) ? 1660000 : 1000000;
-		} else if (com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId)) {
-			quota = com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_32.equals(modelId) ? 500000 : 333000;
-		} else {
-			quota = com.builtbydeep.sovra.CloudTtsClients.ELEVEN_V3.equals(modelId) ? 10000 : 20000;
+	private void updateApiKeysSubtitle() {
+		if (binding == null || sp1 == null) return;
+		int active = 0;
+		for (String providerId : new String[]{CloudTtsClients.RIME, CloudTtsClients.SPEECHIFY,
+				CloudTtsClients.ELEVENLABS, CloudTtsClients.WITAI}) {
+			if (!sp1.getString(CloudTtsClients.getApiKeyPreference(providerId), "").trim().isEmpty()) {
+				active++;
+			}
 		}
-		int used = com.builtbydeep.sovra.CloudStudioAdapter.getMonthlyUsage(sp1, providerId);
-		usageText.setText("Used: " + String.format(Locale.US, "%,d", used) + " / "
-				+ String.format(Locale.US, "%,d", quota) + " chars");
-		usageProgress.setMax(100);
-		usageProgress.setProgress((int) Math.min(100L, (long) used * 100L / quota));
+		binding.apiKeysSubtitle.setText("Manage cloud providers • " + active + " active");
 	}
 
 	@Override
 	public void onResume() {
 		super.onResume();
 		if (binding == null || sp1 == null) return;
-		updateCloudUsage(com.builtbydeep.sovra.CloudTtsClients.RIME,
-				binding.cloudRimeUsed, binding.cloudRimeProgress);
-		updateCloudUsage(com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY,
-				binding.cloudSpeechifyUsed, binding.cloudSpeechifyProgress);
-		updateCloudUsage(com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS,
-				binding.cloudElevenlabsUsed, binding.cloudElevenlabsProgress);
+		updateApiKeysSubtitle();
 	}
 	
 }

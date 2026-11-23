@@ -14,6 +14,7 @@ import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -29,6 +30,10 @@ public final class CloudStudioAdapter {
                                         CloudTtsProvider.Voice primary,
                                         List<CloudTtsProvider.Voice> availableVoices,
                                         SharedPreferences settings) throws IOException {
+        if (CloudTtsClients.WITAI.equals(providerId)
+                && WitAiTtsProvider.containsDevanagari(text)) {
+            throw new IOException("Wit.ai supports English voices only.");
+        }
         if (primary == null) throw new IOException("Select a cloud voice before generating audio.");
         float speed = settings.getFloat("voice_speed", 1.0f);
         float pitch = settings.getFloat("voice_pitch", 1.0f);
@@ -91,41 +96,88 @@ public final class CloudStudioAdapter {
                                       List<Segment> segments, boolean smartPunctuation,
                                       float silenceSeconds, SharedPreferences preferences)
             throws IOException {
+        return synthesize(context, providerId, modelId, apiKey, segments, smartPunctuation,
+                silenceSeconds, preferences, () -> !Thread.currentThread().isInterrupted());
+    }
+
+    public static Synthesis synthesize(Context context, String providerId, String modelId, String apiKey,
+                                      List<Segment> segments, boolean smartPunctuation,
+                                      float silenceSeconds, SharedPreferences preferences,
+                                      java.util.function.BooleanSupplier shouldContinue)
+            throws IOException {
         CloudTtsProvider provider = CloudTtsClients.get(providerId);
         ByteArrayOutputStream pcm = new ByteArrayOutputStream();
+        ByteArrayOutputStream mp3 = CloudTtsClients.WITAI.equals(providerId)
+                ? new ByteArrayOutputStream() : null;
         int sampleRate = 0;
         int spokenCharacters = 0;
-        for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
-            Segment segment = segments.get(segmentIndex);
-            List<String> chunks = CloudTtsClients.splitText(segment.text, provider.getSafeChunkLimit());
-            for (int i = 0; i < chunks.size(); i++) {
-                String chunk = chunks.get(i);
-                String requestText = chunk;
-                if (CloudTtsClients.RIME.equals(providerId)
-                        && CloudTtsClients.RIME_MIST.equals(modelId) && smartPunctuation) {
-                    requestText = injectRimePauses(requestText);
-                }
-                byte[] audio = provider.synthesize(apiKey, modelId, segment.voice, requestText,
-                        normalizeLanguage(segment.voice.locale), segment.speed, segment.pitch,
-                        smartPunctuation);
-                DecodedAudio decoded = decodeMp3(context, audio);
-                if (sampleRate == 0) sampleRate = decoded.sampleRate;
-                if (sampleRate != decoded.sampleRate) throw new IOException("Cloud TTS changed its audio sample rate.");
-                if (pcm.size() > 0) {
-                    float gap = Math.max(0.0f, Math.min(3.0f, silenceSeconds));
-                    if (smartPunctuation && gap > 0.001f && (CloudTtsClients.RIME.equals(providerId)
-                            && CloudTtsClients.RIME_CODA.equals(modelId)
-                            || CloudTtsClients.ELEVENLABS.equals(providerId))) {
-                        pcm.write(new byte[Math.round(sampleRate * gap) * 2]);
+        try {
+            for (int segmentIndex = 0; segmentIndex < segments.size(); segmentIndex++) {
+                Segment segment = segments.get(segmentIndex);
+                List<String> chunks = CloudTtsClients.WITAI.equals(providerId)
+                        ? WitAiTtsProvider.splitIntoChunks(segment.text)
+                        : CloudTtsClients.splitText(segment.text, provider.getSafeChunkLimit());
+                List<File> witChunkFiles = Collections.emptyList();
+                if (CloudTtsClients.WITAI.equals(providerId)) {
+                    if (WitAiTtsProvider.containsDevanagari(segment.text)) {
+                        throw new IOException("Wit.ai supports English voices only.");
                     }
+                    witChunkFiles = ((WitAiTtsProvider) provider).synthesizeToFiles(context, apiKey,
+                            segment.voice, chunks, segment.voiceStyle, shouldContinue);
                 }
-                pcm.write(decoded.pcm);
-                spokenCharacters += countSpokenCharacters(chunk);
+                for (int i = 0; i < chunks.size(); i++) {
+                    if (!shouldContinue.getAsBoolean()) {
+                        throw new IOException("Cloud TTS synthesis was cancelled.");
+                    }
+                    String chunk = chunks.get(i);
+                    String requestText = chunk;
+                    if (CloudTtsClients.RIME.equals(providerId)
+                            && CloudTtsClients.RIME_MIST.equals(modelId) && smartPunctuation) {
+                        requestText = injectRimePauses(requestText);
+                    }
+                    byte[] audio;
+                    if (CloudTtsClients.WITAI.equals(providerId)) {
+                        File chunkFile = witChunkFiles.get(i);
+                        try {
+                            audio = java.nio.file.Files.readAllBytes(chunkFile.toPath());
+                            mp3.write(mp3.size() == 0 ? audio : WitAiTtsProvider.stripId3v2(audio));
+                        } finally {
+                            if (!chunkFile.delete() && chunkFile.exists()) {
+                                android.util.Log.w("CloudStudioAdapter",
+                                        "Unable to remove a temporary Wit.ai audio chunk.");
+                            }
+                        }
+                    } else {
+                        audio = provider.synthesize(apiKey, modelId, segment.voice, requestText,
+                                normalizeLanguage(segment.voice.locale), segment.speed, segment.pitch,
+                                smartPunctuation, segment.voiceStyle);
+                    }
+                    DecodedAudio decoded = decodeMp3(context, audio);
+                    if (sampleRate == 0) sampleRate = decoded.sampleRate;
+                    if (sampleRate != decoded.sampleRate) {
+                        throw new IOException("Cloud TTS changed its audio sample rate.");
+                    }
+                    if (pcm.size() > 0) {
+                        float gap = Math.max(0.0f, Math.min(3.0f, silenceSeconds));
+                        if (smartPunctuation && gap > 0.001f && (CloudTtsClients.RIME.equals(providerId)
+                                && CloudTtsClients.RIME_CODA.equals(modelId)
+                                || CloudTtsClients.ELEVENLABS.equals(providerId))) {
+                            pcm.write(new byte[Math.round(sampleRate * gap) * 2]);
+                        }
+                    }
+                    pcm.write(decoded.pcm);
+                    spokenCharacters += countSpokenCharacters(chunk);
+                }
+            }
+        } finally {
+            if (CloudTtsClients.WITAI.equals(providerId)) {
+                ((WitAiTtsProvider) provider).cancelAndClean(context);
             }
         }
         if (sampleRate == 0 || pcm.size() == 0) throw new IOException("Cloud TTS returned no playable audio.");
         recordUsage(preferences, providerId, spokenCharacters);
-        return new Synthesis(pcm.toByteArray(), sampleRate, spokenCharacters);
+        return new Synthesis(pcm.toByteArray(), sampleRate, spokenCharacters,
+                mp3 == null ? null : mp3.toByteArray());
     }
 
     private static String injectRimePauses(String text) {
@@ -304,11 +356,13 @@ public final class CloudStudioAdapter {
         public final byte[] pcm;
         public final int sampleRate;
         public final int spokenCharacters;
+        public final byte[] mp3;
 
-        Synthesis(byte[] pcm, int sampleRate, int spokenCharacters) {
+        Synthesis(byte[] pcm, int sampleRate, int spokenCharacters, byte[] mp3) {
             this.pcm = pcm;
             this.sampleRate = sampleRate;
             this.spokenCharacters = spokenCharacters;
+            this.mp3 = mp3;
         }
     }
 

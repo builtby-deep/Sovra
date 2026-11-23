@@ -364,10 +364,12 @@ public class ModelsFragmentActivity extends Fragment {
 					String selectedCloudModel = sp1.getString(
 							com.builtbydeep.sovra.CloudTtsClients.getSelectedModelPreference(cloudProviderId),
 							com.builtbydeep.sovra.CloudTtsClients.defaultModel(cloudProviderId));
-					txtModelSub.setText(com.builtbydeep.sovra.CloudTtsClients.modelLabel(
-							cloudProviderId, selectedCloudModel) + " • "
-							+ com.builtbydeep.sovra.CloudTtsClients.quotaLabel(
-									cloudProviderId, selectedCloudModel));
+					txtModelSub.setText(com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(cloudProviderId)
+							? "8 Curated Voices • Unlimited/mo"
+							: com.builtbydeep.sovra.CloudTtsClients.modelLabel(
+									cloudProviderId, selectedCloudModel) + " • "
+									+ com.builtbydeep.sovra.CloudTtsClients.quotaLabel(
+											cloudProviderId, selectedCloudModel));
 					progressBar.setVisibility(android.view.View.GONE);
 					btnDelete.setVisibility(android.view.View.VISIBLE);
 					android.widget.ImageView tuneIcon = v.findViewById(R.id.imageview9);
@@ -525,7 +527,9 @@ public class ModelsFragmentActivity extends Fragment {
 								String defaultVoice = com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS.equals(capturedCloudProvider)
 										? "21m00Tcm4TlvDq8ikWAM"
 										: com.builtbydeep.sovra.CloudTtsClients.RIME.equals(capturedCloudProvider)
-												? "astra" : "";
+												? "astra"
+												: com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(capturedCloudProvider)
+														? "Charlie" : "";
 								sp1.edit().putString("cloud_voice_" + capturedCloudProvider, defaultVoice)
 										.putString("cloud_locale_" + capturedCloudProvider, "en").apply();
 							}
@@ -889,7 +893,8 @@ public class ModelsFragmentActivity extends Fragment {
 		orderedModels.add(_resetCatalogEntry(edgeEntry, existingEdge));
 		for (String providerId : new String[]{com.builtbydeep.sovra.CloudTtsClients.RIME,
 				com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY,
-				com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS}) {
+				com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS,
+				com.builtbydeep.sovra.CloudTtsClients.WITAI}) {
 			HashMap<String, Object> cloudEntry = createCloudCatalogEntry(providerId);
 			String cloudUrl = String.valueOf(cloudEntry.get("model_url"));
 			builtInUrls.add(cloudUrl);
@@ -922,10 +927,12 @@ public class ModelsFragmentActivity extends Fragment {
 		HashMap<String, Object> entry = new HashMap<>();
 		String name = com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId) ? "Rime AI"
 				: com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId) ? "SpeechifyAI"
-				: "ElevenLabs";
+				: com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS.equals(providerId) ? "ElevenLabs"
+				: "Wit.ai";
 		entry.put("name", name);
 		entry.put("type", "cloud-" + providerId);
-		entry.put("language", "Cloud");
+		entry.put("language", com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(providerId)
+				? "8 Curated Voices • Unlimited/mo" : "Cloud");
 		entry.put("gender", "API");
 		entry.put("size", "0 MB");
 		entry.put("model_url", "cloud-provider-" + providerId);
@@ -938,6 +945,7 @@ public class ModelsFragmentActivity extends Fragment {
 		if (normalized.equals("cloud-rime")) return com.builtbydeep.sovra.CloudTtsClients.RIME;
 		if (normalized.equals("cloud-speechify")) return com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY;
 		if (normalized.equals("cloud-elevenlabs")) return com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS;
+		if (normalized.equals("cloud-witai")) return com.builtbydeep.sovra.CloudTtsClients.WITAI;
 		return "";
 	}
 
@@ -949,6 +957,13 @@ public class ModelsFragmentActivity extends Fragment {
 		} else if (com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId)) {
 			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_35,
 					com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_32};
+		} else if (com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(providerId)) {
+			new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
+					.setTitle("Wit.ai")
+					.setMessage("8 curated English voices • Unlimited monthly usage • 250 characters per request.")
+					.setPositiveButton("OK", null)
+					.show();
+			return;
 		} else {
 			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.ELEVEN_FLASH,
 					com.builtbydeep.sovra.CloudTtsClients.ELEVEN_V3};

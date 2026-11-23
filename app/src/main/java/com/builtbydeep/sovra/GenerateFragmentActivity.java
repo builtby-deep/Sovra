@@ -78,6 +78,7 @@ public class GenerateFragmentActivity extends Fragment {
 	private boolean isAudioGeneratedForCurrentText = false;
 	private String lastGeneratedText = "";
 	private byte[] lastGeneratedPcmData = null;
+	private byte[] lastGeneratedMp3Data = null;
 	private volatile java.io.File lastGeneratedPcmFile;
 	private volatile java.io.File activeEdgePcmFile;
 	private volatile long lastGeneratedPcmBytes;
@@ -221,6 +222,12 @@ public class GenerateFragmentActivity extends Fragment {
 						.equalsIgnoreCase(currentModelType);
 				String cloudProviderId = cloudProviderFromType(currentModelType);
 				boolean isCloudTts = !cloudProviderId.isEmpty();
+				if (com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(cloudProviderId)
+						&& com.builtbydeep.sovra.WitAiTtsProvider.containsDevanagari(inputText)) {
+					android.widget.Toast.makeText(requireContext(),
+							"Wit.ai supports English voices only.", android.widget.Toast.LENGTH_SHORT).show();
+					return;
+				}
 				
 				boolean isPunctOn   = sp3.getBoolean("smart_punct", false);
 				boolean isEmotionOn = sp3.getBoolean("emotion_tags", false);
@@ -346,6 +353,10 @@ public class GenerateFragmentActivity extends Fragment {
 					edgeTtsClient = generationEdgeTtsClient;
 					isGenerating = true;
 					isCancelled = false;
+					if (com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(selectedCloudProvider)) {
+						com.builtbydeep.sovra.CloudTtsClients.getWitAiProvider()
+								.cancelAndClean(requireContext().getApplicationContext());
+					}
 					isEdgeTtsGenerating = isEdgeTts;
 					edgeStreamStarted = false;
 					final int myGenId = currentGenerationId;
@@ -382,6 +393,7 @@ public class GenerateFragmentActivity extends Fragment {
 						
 						String loadResult = "";
 						byte[] finalGeneratedPcm = null;
+						byte[] finalGeneratedMp3 = null;
 						java.io.File generatedPcmFile = null;
 						long generatedPcmBytes = 0;
 						int generatedSampleRate = 24000;
@@ -552,8 +564,10 @@ public class GenerateFragmentActivity extends Fragment {
 								com.builtbydeep.sovra.CloudStudioAdapter.Synthesis synthesis =
 										com.builtbydeep.sovra.CloudStudioAdapter.synthesize(
 												generationContext, selectedCloudProvider, selectedCloudModel,
-												selectedCloudApiKey, segments, isPunctOn, currentSilence, sp1);
+												selectedCloudApiKey, segments, isPunctOn, currentSilence, sp1,
+												() -> !isCancelled && myGenId == currentGenerationId);
 								finalGeneratedPcm = synthesis.pcm;
+								finalGeneratedMp3 = synthesis.mp3;
 								generatedSampleRate = synthesis.sampleRate;
 								loadResult = "Success";
 							} catch (Exception error) {
@@ -729,6 +743,7 @@ public class GenerateFragmentActivity extends Fragment {
 						} catch (Exception ignored) {}
 						
 						final byte[] finalPcm = finalGeneratedPcm;
+						final byte[] finalMp3 = finalGeneratedMp3;
 						final java.io.File finalPcmFile = generatedPcmFile;
 						final long finalPcmBytes = generatedPcmBytes;
 						final String finalLoadResult = loadResult;
@@ -751,6 +766,7 @@ public class GenerateFragmentActivity extends Fragment {
 														&& finalPcmBytes > 0
 												: finalPcm != null && finalPcm.length > 0)) {
 									lastGeneratedPcmData = isEdgeTts ? null : finalPcm;
+									lastGeneratedMp3Data = finalMp3;
 									lastGeneratedPcmFile = isEdgeTts ? finalPcmFile : null;
 									lastGeneratedPcmBytes = isEdgeTts ? finalPcmBytes : 0;
 									lastGeneratedSampleRate = finalSampleRate;
@@ -1376,6 +1392,7 @@ public class GenerateFragmentActivity extends Fragment {
 					}
 				} catch (Exception ignored) {}
 				lastGeneratedPcmData = null;
+				lastGeneratedMp3Data = null;
 				lastParams = null;
 				if (playheadAnimator != null) playheadAnimator.cancel();
 				binding.playheadLine.setTranslationX(0f);
@@ -2138,7 +2155,9 @@ public class GenerateFragmentActivity extends Fragment {
 						.putString("cloud_region_" + providerId, selected.region)
 						.putString("active_language", selected.locale).apply();
 				binding.voiceNameTv.setText(selected.displayName());
-				if (!previous.equals(selected.id)) _forceResetToIdle();
+				if (!previous.equals(selected.id)) {
+					_forceResetToIdle();
+				}
 			}
 			@Override public void onNothingSelected(android.widget.AdapterView<?> parent) {}
 		});
@@ -2150,6 +2169,7 @@ public class GenerateFragmentActivity extends Fragment {
 		if (normalized.equals("cloud-rime")) return com.builtbydeep.sovra.CloudTtsClients.RIME;
 		if (normalized.equals("cloud-speechify")) return com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY;
 		if (normalized.equals("cloud-elevenlabs")) return com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS;
+		if (normalized.equals("cloud-witai")) return com.builtbydeep.sovra.CloudTtsClients.WITAI;
 		return "";
 	}
 
@@ -2520,8 +2540,12 @@ public class GenerateFragmentActivity extends Fragment {
 		// Yahan se aapka original save logic shuru hota hai (Bina kisi ads ke)
 		int sampleRateToSave = lastGeneratedSampleRate > 0 ? lastGeneratedSampleRate : 22050;
 		
-		String cleanFileName = "Vox_" + System.currentTimeMillis() + ".wav";
-		String savedPath = lastGeneratedPcmFile != null
+		boolean saveMp3 = lastGeneratedMp3Data != null && lastGeneratedMp3Data.length > 0;
+		String cleanFileName = "Vox_" + System.currentTimeMillis() + (saveMp3 ? ".mp3" : ".wav");
+		String savedPath = saveMp3
+				? com.builtbydeep.sovra.AudioHelper.saveMp3File(
+						lastGeneratedMp3Data, cleanFileName, getContext())
+				: lastGeneratedPcmFile != null
 				? com.builtbydeep.sovra.AudioHelper.saveWavFile(
 						lastGeneratedPcmFile, cleanFileName, sampleRateToSave, getContext())
 				: com.builtbydeep.sovra.AudioHelper.saveWavFile(
@@ -2619,6 +2643,12 @@ public class GenerateFragmentActivity extends Fragment {
 	
 	public void _forceResetToIdle() {
 		boolean resetEdgeStream = edgeStreamStarted;
+		if (sp1 != null && getContext() != null
+				&& com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(
+						cloudProviderFromType(sp1.getString("active_model_type", "")))) {
+			com.builtbydeep.sovra.CloudTtsClients.getWitAiProvider()
+					.cancelAndClean(getContext().getApplicationContext());
+		}
 		// CRITICAL SIGSEGV FIX: Cancel native engines to stop C++ background generation immediately
 		try {
 			com.builtbydeep.sovra.VoiceEngine.getInstance().cancel();
@@ -2635,6 +2665,7 @@ public class GenerateFragmentActivity extends Fragment {
 		isAudioGeneratedForCurrentText = false;
 		lastParams = null;
 		lastGeneratedPcmData = null;
+		lastGeneratedMp3Data = null;
 		if (lastGeneratedPcmFile != null) lastGeneratedPcmFile.delete();
 		lastGeneratedPcmFile = null;
 		if (activeEdgePcmFile != null) activeEdgePcmFile.delete();
@@ -2831,6 +2862,11 @@ public class GenerateFragmentActivity extends Fragment {
 			com.builtbydeep.sovra.EdgeTtsClient clientToCancel = edgeTtsClient;
 			isCancelled = true;
 			isGenerating = false;
+			if (com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(
+					cloudProviderFromType(sp1.getString("active_model_type", "")))) {
+				com.builtbydeep.sovra.CloudTtsClients.getWitAiProvider()
+						.cancelAndClean(requireContext().getApplicationContext());
+			}
 			isEdgeTtsGenerating = false;
 			if (cancelEdgeStream) {
 				currentGenerationId++;

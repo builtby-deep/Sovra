@@ -10,6 +10,11 @@ public interface CloudTtsProvider {
     byte[] synthesize(String apiKey, String modelId, Voice voice, String text,
                       String language, float speed, float pitch, boolean smartPunctuation)
             throws IOException;
+    default byte[] synthesize(String apiKey, String modelId, Voice voice, String text,
+                              String language, float speed, float pitch,
+                              boolean smartPunctuation, int voiceStyle) throws IOException {
+        return synthesize(apiKey, modelId, voice, text, language, speed, pitch, smartPunctuation);
+    }
 
     final class Voice {
         public final String id;

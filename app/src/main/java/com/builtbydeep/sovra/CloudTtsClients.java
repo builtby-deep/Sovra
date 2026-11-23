@@ -20,6 +20,7 @@ public final class CloudTtsClients {
     public static final String RIME = "rime";
     public static final String SPEECHIFY = "speechify";
     public static final String ELEVENLABS = "elevenlabs";
+    public static final String WITAI = WitAiTtsProvider.ID;
     public static final String RIME_CODA = "coda";
     public static final String RIME_MIST = "mistv3";
     public static final String SPEECHIFY_35 = "simba-3.5";
@@ -36,6 +37,7 @@ public final class CloudTtsClients {
     private static final RimeClient RIME_CLIENT = new RimeClient();
     private static final SpeechifyClient SPEECHIFY_CLIENT = new SpeechifyClient();
     private static final ElevenLabsClient ELEVENLABS_CLIENT = new ElevenLabsClient();
+    private static final WitAiTtsProvider WITAI_CLIENT = new WitAiTtsProvider();
 
     private CloudTtsClients() {}
 
@@ -43,7 +45,12 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_CLIENT;
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_CLIENT;
         if (ELEVENLABS.equals(providerId)) return ELEVENLABS_CLIENT;
+        if (WITAI.equals(providerId)) return WITAI_CLIENT;
         throw new IllegalArgumentException("Unknown cloud TTS provider: " + providerId);
+    }
+
+    public static WitAiTtsProvider getWitAiProvider() {
+        return WITAI_CLIENT;
     }
 
     public static String getApiKeyPreference(String providerId) {
@@ -58,6 +65,7 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST;
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32;
         if (ELEVENLABS.equals(providerId)) return ELEVEN_FLASH;
+        if (WITAI.equals(providerId)) return "";
         throw new IllegalArgumentException("Unknown cloud TTS provider: " + providerId);
     }
 
@@ -65,6 +73,7 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? "Mist v3" : "Coda";
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "Simba 3.2" : "Simba 3.5";
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? "Eleven v3" : "Flash v2.5";
+        if (WITAI.equals(providerId)) return "Wit.ai";
         return modelId;
     }
 
@@ -72,12 +81,14 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? "$50/mo" : "1M/mo";
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "500K/mo" : "333K/mo";
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? "10K/mo" : "20K/mo";
+        if (WITAI.equals(providerId)) return "Unlimited/mo";
         return "";
     }
 
     public static String languageLabel(String providerId, String modelId) {
         if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? "English, French, German, Spanish" : "10 languages • English, Hindi";
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "English only" : "48 languages • English, Hindi";
+        if (WITAI.equals(providerId)) return "8 curated English voices";
         return ELEVEN_V3.equals(modelId) ? "70+ languages" : "32 languages • English, Hindi";
     }
 
@@ -91,6 +102,13 @@ public final class CloudTtsClients {
             matches.add(voice);
         }
         return Collections.unmodifiableList(matches);
+    }
+
+    public static int monthlyCharacterLimit(String providerId, String modelId) {
+        if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? 1660000 : 1000000;
+        if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? 500000 : 333000;
+        if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? 10000 : 20000;
+        return 0;
     }
 
     static List<String> splitText(String text, int limit) {
