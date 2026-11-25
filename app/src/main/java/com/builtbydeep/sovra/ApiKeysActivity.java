@@ -4,6 +4,7 @@ import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Bundle;
 import android.text.InputType;
 import android.view.Gravity;
@@ -11,39 +12,88 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.Button;
+import android.widget.FrameLayout;
 import android.widget.GridLayout;
+import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
 
 import com.google.android.material.card.MaterialCardView;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.Calendar;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class ApiKeysActivity extends AppCompatActivity {
     private static final int CYAN = Color.rgb(0, 229, 255);
     private static final int MUTED = Color.rgb(148, 163, 184);
+    private static final int SURFACE = Color.rgb(26, 29, 46);
     private static final int[] PROVIDER_BADGES = {0xFF00E5FF, 0xFF8B9EFF, 0xFFFFB86B, 0xFF84E1BC};
+    private static final String[] PROVIDERS = {CloudTtsClients.RIME, CloudTtsClients.SPEECHIFY,
+            CloudTtsClients.ELEVENLABS, CloudTtsClients.WITAI};
     private SharedPreferences preferences;
     private GridLayout providerGrid;
+    private View popupScrim;
+    private View popupControls;
+    private LinearLayout popupMenu;
+    private ImageButton menuFab;
+    private boolean popupOpen;
+    private final ExecutorService backupExecutor = Executors.newSingleThreadExecutor();
+    private ActivityResultLauncher<android.content.Intent> backupLauncher;
+    private ActivityResultLauncher<android.content.Intent> restoreLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        backupLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null
+                            && result.getData().getData() != null) {
+                        backupToUri(result.getData().getData());
+                    }
+                });
+        restoreLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(), result -> {
+                    if (result.getResultCode() == RESULT_OK && result.getData() != null
+                            && result.getData().getData() != null) {
+                        restoreFromUri(result.getData().getData());
+                    }
+                });
         preferences = getSharedPreferences("sp1", MODE_PRIVATE);
         getWindow().setStatusBarColor(Color.rgb(15, 20, 30));
         getWindow().setNavigationBarColor(Color.rgb(15, 20, 30));
 
+        FrameLayout screen = new FrameLayout(this);
+        screen.setBackgroundColor(Color.rgb(15, 20, 30));
+        setContentView(screen);
+
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.rgb(15, 20, 30));
-        root.setPadding(dp(16), dp(12), dp(16), dp(16));
-        setContentView(root);
+        root.setPadding(dp(16), dp(12), dp(16), 0);
+        screen.addView(root, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         LinearLayout toolbar = new LinearLayout(this);
         toolbar.setGravity(Gravity.CENTER_VERTICAL);
@@ -63,24 +113,35 @@ public final class ApiKeysActivity extends AppCompatActivity {
         providerGrid = new GridLayout(this);
         providerGrid.setColumnCount(2);
         providerGrid.setUseDefaultMargins(false);
-        providerGrid.setPadding(0, dp(18), 0, 0);
+        providerGrid.setPadding(0, dp(18), 0, dp(12));
         scroll.addView(providerGrid);
         root.addView(scroll, new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        addBackupPopup(screen);
+        ViewCompat.setOnApplyWindowInsetsListener(screen, (view, insets) -> {
+            Insets bars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+            root.setPadding(dp(16) + bars.left, dp(12) + bars.top,
+                    dp(16) + bars.right, 0);
+            FrameLayout.LayoutParams controlsParams =
+                    (FrameLayout.LayoutParams) popupControls.getLayoutParams();
+            controlsParams.rightMargin = dp(20) + bars.right;
+            controlsParams.bottomMargin = dp(20) + bars.bottom;
+            popupControls.setLayoutParams(controlsParams);
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(screen);
         refreshProviders();
     }
 
     private void refreshProviders() {
         providerGrid.removeAllViews();
-        String[] providers = {CloudTtsClients.RIME, CloudTtsClients.SPEECHIFY,
-                CloudTtsClients.ELEVENLABS, CloudTtsClients.WITAI};
-        for (int i = 0; i < providers.length; i++) {
-            final String providerId = providers[i];
+        for (int i = 0; i < PROVIDERS.length; i++) {
+            final String providerId = PROVIDERS[i];
             GridLayout.LayoutParams params = new GridLayout.LayoutParams(
-                    GridLayout.spec(i / 2, 1, 1f), GridLayout.spec(i % 2, 1, 1f));
+                    GridLayout.spec(i / 2), GridLayout.spec(i % 2, 1, 1f));
             params.width = 0;
-            params.height = dp(166);
-            params.setMargins(dp(5), dp(5), dp(5), dp(5));
+            params.height = ViewGroup.LayoutParams.WRAP_CONTENT;
+            params.setMargins(dp(6), dp(6), dp(6), dp(6));
             providerGrid.addView(createProviderCard(providerId, i), params);
         }
     }
@@ -88,7 +149,7 @@ public final class ApiKeysActivity extends AppCompatActivity {
     @NonNull
     private View createProviderCard(String providerId, int index) {
         MaterialCardView card = new MaterialCardView(this);
-        card.setCardBackgroundColor(Color.rgb(26, 29, 46));
+        card.setCardBackgroundColor(SURFACE);
         card.setStrokeColor(Color.rgb(42, 47, 69));
         card.setStrokeWidth(dp(1));
         card.setRadius(dp(18));
@@ -96,7 +157,7 @@ public final class ApiKeysActivity extends AppCompatActivity {
         card.setFocusable(true);
         LinearLayout content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(14), dp(14), dp(12), dp(12));
+        content.setPadding(dp(16), dp(16), dp(16), dp(16));
         card.addView(content);
 
         TextView badge = text(providerBadge(providerId), 12,
@@ -133,6 +194,251 @@ public final class ApiKeysActivity extends AppCompatActivity {
         content.addView(quota, quotaParams);
         card.setOnClickListener(view -> showProviderDialog(providerId));
         return card;
+    }
+
+    private void addBackupPopup(FrameLayout screen) {
+        popupScrim = new View(this);
+        popupScrim.setBackgroundColor(Color.TRANSPARENT);
+        popupScrim.setVisibility(View.GONE);
+        popupScrim.setAlpha(0f);
+        popupScrim.setClickable(true);
+        popupScrim.setOnClickListener(view -> closeBackupPopup());
+        screen.addView(popupScrim, new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+
+        LinearLayout controls = new LinearLayout(this);
+        controls.setOrientation(LinearLayout.VERTICAL);
+        controls.setGravity(Gravity.CENTER_HORIZONTAL);
+        FrameLayout.LayoutParams controlsParams = new FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.END | Gravity.BOTTOM);
+        controlsParams.setMargins(0, 0, dp(20), dp(20));
+        screen.addView(controls, controlsParams);
+        popupControls = controls;
+
+        popupMenu = new LinearLayout(this);
+        popupMenu.setOrientation(LinearLayout.VERTICAL);
+        popupMenu.setGravity(Gravity.CENTER);
+        popupMenu.setPadding(dp(8), dp(8), dp(8), dp(8));
+        popupMenu.setBackground(outlinedRoundBackground(SURFACE, 0xFF3A415B, dp(24)));
+        popupMenu.setVisibility(View.GONE);
+        popupMenu.setAlpha(0f);
+        popupMenu.setScaleY(0.85f);
+        popupMenu.setElevation(dp(8));
+        LinearLayout.LayoutParams menuParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        menuParams.bottomMargin = dp(12);
+        controls.addView(popupMenu, menuParams);
+
+        ImageButton upload = popupButton(R.drawable.ic_cloud_upload, "Backup API Keys");
+        upload.setOnClickListener(view -> {
+            closeBackupPopup();
+            android.content.Intent intent = new android.content.Intent(
+                    android.content.Intent.ACTION_CREATE_DOCUMENT);
+            intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+            intent.setType("application/json");
+            intent.putExtra(android.content.Intent.EXTRA_TITLE, "api_keys_backup.json");
+            backupLauncher.launch(intent);
+        });
+        popupMenu.addView(upload);
+
+        ImageButton download = popupButton(R.drawable.ic_cloud_download, "Restore API Keys");
+        LinearLayout.LayoutParams downloadParams = new LinearLayout.LayoutParams(dp(48), dp(48));
+        downloadParams.topMargin = dp(8);
+        popupMenu.addView(download, downloadParams);
+        download.setOnClickListener(view -> {
+            closeBackupPopup();
+            android.content.Intent intent = new android.content.Intent(
+                    android.content.Intent.ACTION_OPEN_DOCUMENT);
+            intent.addCategory(android.content.Intent.CATEGORY_OPENABLE);
+            intent.setType("*/*");
+            intent.putExtra(android.content.Intent.EXTRA_MIME_TYPES,
+                    new String[]{"application/json", "text/plain"});
+            restoreLauncher.launch(intent);
+        });
+
+        menuFab = new ImageButton(this);
+        menuFab.setContentDescription("Open API key backup options");
+        menuFab.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        menuFab.setPadding(dp(16), dp(16), dp(16), dp(16));
+        menuFab.setImageResource(R.drawable.ic_api_add);
+        menuFab.setBackground(roundBackground(CYAN, dp(28)));
+        menuFab.setElevation(dp(8));
+        controls.addView(menuFab, new LinearLayout.LayoutParams(dp(56), dp(56)));
+        menuFab.setOnClickListener(view -> {
+            if (popupOpen) closeBackupPopup();
+            else openBackupPopup();
+        });
+    }
+
+    private ImageButton popupButton(int icon, String description) {
+        ImageButton button = new ImageButton(this);
+        button.setContentDescription(description);
+        button.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
+        button.setPadding(dp(12), dp(12), dp(12), dp(12));
+        button.setImageResource(icon);
+        button.setBackground(roundBackground(0xFF202438, dp(24)));
+        button.setLayoutParams(new LinearLayout.LayoutParams(dp(48), dp(48)));
+        return button;
+    }
+
+    private void openBackupPopup() {
+        popupOpen = true;
+        menuFab.setImageResource(R.drawable.ic_api_close);
+        menuFab.setContentDescription("Close API key backup options");
+        popupScrim.setVisibility(View.VISIBLE);
+        popupScrim.animate().alpha(1f).setDuration(160).start();
+        popupMenu.setVisibility(View.VISIBLE);
+        popupMenu.animate().alpha(1f).scaleY(1f).setDuration(180).start();
+    }
+
+    private void closeBackupPopup() {
+        if (!popupOpen) return;
+        popupOpen = false;
+        menuFab.setImageResource(R.drawable.ic_api_add);
+        menuFab.setContentDescription("Open API key backup options");
+        popupMenu.animate().alpha(0f).scaleY(0.85f).setDuration(140)
+                .withEndAction(() -> popupMenu.setVisibility(View.GONE)).start();
+        popupScrim.animate().alpha(0f).setDuration(140)
+                .withEndAction(() -> popupScrim.setVisibility(View.GONE)).start();
+    }
+
+    private void backupToUri(Uri uri) {
+        backupExecutor.execute(() -> {
+            try {
+                JSONObject backup = createBackup();
+                try (OutputStream output = getContentResolver().openOutputStream(uri, "wt")) {
+                    if (output == null) throw new IOException("Unable to open the backup destination.");
+                    output.write(backup.toString(2).getBytes(StandardCharsets.UTF_8));
+                    output.flush();
+                }
+                runOnUiThread(() -> Toast.makeText(this, "API keys backed up successfully",
+                        Toast.LENGTH_SHORT).show());
+            } catch (Exception error) {
+                android.util.Log.e("ApiKeysActivity", "Unable to back up API keys.", error);
+                runOnUiThread(() -> Toast.makeText(this, "Unable to back up API keys",
+                        Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private JSONObject createBackup() throws JSONException {
+        JSONObject providerData = new JSONObject();
+        for (String providerId : PROVIDERS) {
+            JSONObject data = new JSONObject();
+            data.put("apiKey", preferences.getString(
+                    CloudTtsClients.getApiKeyPreference(providerId), ""));
+            data.put("usageMonth", currentMonth());
+            data.put("usageChars", CloudStudioAdapter.getMonthlyUsage(preferences, providerId));
+            providerData.put(providerId, data);
+        }
+        JSONObject backup = new JSONObject();
+        backup.put("version", 1);
+        backup.put("providers", providerData);
+        return backup;
+    }
+
+    private void restoreFromUri(Uri uri) {
+        backupExecutor.execute(() -> {
+            try {
+                JSONObject providers = readAndValidateBackup(uri);
+                SharedPreferences.Editor editor = preferences.edit();
+                int restored = 0;
+                for (String providerId : PROVIDERS) {
+                    if (!providers.has(providerId)) continue;
+                    JSONObject provider = providers.getJSONObject(providerId);
+                    String apiKey = provider.getString("apiKey").trim();
+                    if (apiKey.isEmpty()) continue;
+                    editor.putString(CloudTtsClients.getApiKeyPreference(providerId), apiKey);
+                    if (provider.has("usageMonth")) {
+                        editor.putString("cloud_usage_month_" + providerId,
+                                provider.getString("usageMonth"));
+                        editor.putInt("cloud_usage_chars_" + providerId,
+                                provider.getInt("usageChars"));
+                    }
+                    restored++;
+                }
+                editor.apply();
+                int restoredCount = restored;
+                runOnUiThread(() -> {
+                    refreshProviders();
+                    Toast.makeText(this, "Restored and activated " + restoredCount + " API keys",
+                            Toast.LENGTH_SHORT).show();
+                });
+            } catch (InvalidBackupException error) {
+                runOnUiThread(() -> Toast.makeText(this, "Invalid backup file",
+                        Toast.LENGTH_SHORT).show());
+            } catch (Exception error) {
+                android.util.Log.e("ApiKeysActivity", "Unable to restore API keys.", error);
+                runOnUiThread(() -> Toast.makeText(this, "Unable to restore API keys",
+                        Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private JSONObject readAndValidateBackup(Uri uri) throws IOException, InvalidBackupException {
+        StringBuilder json = new StringBuilder();
+        try (InputStream input = getContentResolver().openInputStream(uri)) {
+            if (input == null) throw new IOException("Unable to open the backup file.");
+            try (BufferedReader reader = new BufferedReader(
+                    new InputStreamReader(input, StandardCharsets.UTF_8))) {
+                char[] buffer = new char[4096];
+                int count;
+                while ((count = reader.read(buffer)) != -1) {
+                    if (json.length() + count > 1_000_000) throw new InvalidBackupException();
+                    json.append(buffer, 0, count);
+                }
+            }
+        }
+
+        try {
+            JSONObject root = new JSONObject(json.toString());
+            Object version = root.get("version");
+            if (!(version instanceof Number) || ((Number) version).intValue() != 1
+                    || ((Number) version).doubleValue() != 1.0) {
+                throw new InvalidBackupException();
+            }
+            JSONObject providers = root.getJSONObject("providers");
+            for (String providerId : PROVIDERS) {
+                if (!providers.has(providerId)) continue;
+                JSONObject provider = providers.getJSONObject(providerId);
+                if (!(provider.get("apiKey") instanceof String)) {
+                    throw new InvalidBackupException();
+                }
+                if (provider.has("usageMonth")) {
+                    if (!(provider.get("usageMonth") instanceof String)
+                            || !provider.getString("usageMonth").matches(
+                            "\\d{4}-(0[1-9]|1[0-2])")) {
+                        throw new InvalidBackupException();
+                    }
+                    if (!provider.has("usageChars")) throw new InvalidBackupException();
+                    Object usage = provider.get("usageChars");
+                    if (!(usage instanceof Number) || ((Number) usage).intValue() < 0
+                            || ((Number) usage).doubleValue() != ((Number) usage).intValue()) {
+                        throw new InvalidBackupException();
+                    }
+                } else if (provider.has("usageChars")) {
+                    throw new InvalidBackupException();
+                }
+            }
+            return providers;
+        } catch (JSONException error) {
+            throw new InvalidBackupException(error);
+        }
+    }
+
+    private String currentMonth() {
+        Calendar calendar = Calendar.getInstance();
+        return String.format(Locale.US, "%04d-%02d", calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH) + 1);
+    }
+
+    private static final class InvalidBackupException extends Exception {
+        InvalidBackupException() {}
+
+        InvalidBackupException(Throwable cause) {
+            super(cause);
+        }
     }
 
     private void showProviderDialog(String providerId) {
@@ -287,6 +593,12 @@ public final class ApiKeysActivity extends AppCompatActivity {
         return background;
     }
 
+    private GradientDrawable outlinedRoundBackground(int color, int strokeColor, int radius) {
+        GradientDrawable background = roundBackground(color, radius);
+        background.setStroke(dp(1), strokeColor);
+        return background;
+    }
+
     private TextView text(String value, float size, int color, int style) {
         TextView view = new TextView(this);
         view.setText(value);
@@ -298,5 +610,11 @@ public final class ApiKeysActivity extends AppCompatActivity {
 
     private int dp(int value) {
         return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    @Override
+    protected void onDestroy() {
+        backupExecutor.shutdown();
+        super.onDestroy();
     }
 }
