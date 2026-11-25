@@ -314,9 +314,12 @@ public final class CloudTtsClients {
             if (speed != 1.0f || pitch != 1.0f || smartPunctuation) {
                 String content = escapeXml(text);
                 if (smartPunctuation) content = injectSpeechifyPauses(content);
-                input = "<speak><prosody rate=\"" + Math.round(clamp(speed, 0.25f, 2.0f) * 100)
-                        + "%\" pitch=\"" + Math.round(clamp(pitch, 0.25f, 2.0f) * 100)
-                        + "%\">" + content + "</prosody></speak>";
+                int ratePercent = Math.round((clamp(speed, 0.25f, 2.0f) - 1.0f) * 100);
+                int pitchPercent = Math.round((clamp(pitch, 0.25f, 2.0f) - 1.0f) * 100);
+                String rateAttr = (ratePercent >= 0 ? "+" : "") + ratePercent + "%";
+                String pitchAttr = (pitchPercent >= 0 ? "+" : "") + pitchPercent + "%";
+                input = "<speak><prosody rate=\"" + rateAttr + "\" pitch=\"" + pitchAttr + "\">"
+                        + content + "</prosody></speak>";
             }
             JSONObject body = new JSONObject();
             try {
