@@ -218,29 +218,6 @@ public final class ExtendedCloudProviders {
     }
 
 
-        @Override
-        public byte[] synthesize(String apiKey, String modelId, Voice voice, String text,
-                                 String language, float speed, float pitch, boolean smartPunctuation)
-                throws IOException {
-            try {
-                String speaker = (voice != null && voice.id != null && !voice.id.isEmpty()) ? voice.id : "tara";
-                JSONObject body = new JSONObject();
-                body.put("model", "canopylabs/orpheus-v1-english");
-                body.put("input", text);
-                body.put("voice", speaker);
-                body.put("response_format", "wav");
-                Request req = new Request.Builder()
-                        .header("Authorization", "Bearer " + apiKey)
-                        .post(RequestBody.create(body.toString(), JSON))
-                        .build();
-                try (Response res = HTTP.newCall(req).execute()) {
-                    return res.body().bytes();
-                }
-            } catch (org.json.JSONException e) {
-            }
-        }
-    }
-
     // 4. Cartesia Sonic-3 (Ultra-Low Latency Multilingual + Hindi)
     static final class CartesiaClient implements CloudTtsProvider {
         @Override public String getId() { return CARTESIA; }
