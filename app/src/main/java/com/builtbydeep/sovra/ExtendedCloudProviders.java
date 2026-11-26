@@ -335,7 +335,8 @@ public final class ExtendedCloudProviders {
             } catch (org.json.JSONException e) {
                 throw new IOException("Gradium request failed.", e);
             }
-        
+        }
+
         private static byte[] normalizeGradiumAudio(byte[] raw) throws IOException {
             if (raw == null || raw.length == 0) throw new IOException("Gradium returned empty audio.");
             if (raw[0] == '{') {
@@ -368,6 +369,7 @@ public final class ExtendedCloudProviders {
             wav.put(new byte[]{'d','a','t','a'}).putInt(raw.length).put(raw);
             return wav.array();
         }
+    }
 
     // 6. Cloudflare Workers AI (Deepgram Aura-2) - Enter key as "ACCOUNT_ID:API_TOKEN"
     static final class CloudflareClient implements CloudTtsProvider {
@@ -424,6 +426,3 @@ public final class ExtendedCloudProviders {
         }
     }
 }
-    }
-    }
-
