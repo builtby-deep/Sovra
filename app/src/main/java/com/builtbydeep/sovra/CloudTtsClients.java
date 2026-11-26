@@ -110,7 +110,7 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? "English, French, German, Spanish" : "10 languages • English, Hindi";
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "English only" : "48 languages • English, Hindi";
         if (WITAI.equals(providerId)) return "8 curated English voices";
-        if (CAPCUT.equals(providerId)) return "23 Creator & Character voices";
+        if (CAPCUT.equals(providerId)) return "26 Creator & Character voices";
         if (FISH.equals(providerId)) return "83 languages • English, Hindi";
         if (GROQ.equals(providerId)) return "8 expressive English voices";
         if (CARTESIA.equals(providerId)) return "42 languages • English, Hindi";
