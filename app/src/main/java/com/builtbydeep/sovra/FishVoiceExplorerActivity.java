@@ -282,7 +282,7 @@ public class FishVoiceExplorerActivity extends AppCompatActivity {
                 layoutEmpty.setVisibility(View.VISIBLE);
                 tvEmptyMessage.setText(favs.isEmpty()
                         ? "No starred voices yet.\nTap ⭐ on any voice to pin it to your Home Dropdown!"
-                        : "No starred voices match "" + searchQuery + """);
+                        : "No starred voices match \"" + searchQuery + "\"");
             }
             return;
         }
