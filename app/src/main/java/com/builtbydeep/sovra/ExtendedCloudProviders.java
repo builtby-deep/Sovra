@@ -171,10 +171,11 @@ public final class ExtendedCloudProviders {
         public List<Voice> fetchVoices(String apiKey) {
             return Arrays.asList(
                     new Voice("7f92f8afb8ec43bf81429cc1c9199cb1", "Energetic Male", "en-US", "", "English & Multilingual"),
-                    new Voice("54e3a85ac9594ffa83264b8a494b901b", "Expressive Female", "en-US", "", "English & Multilingual"),
-                    new Voice("b545c585f631496c914815291da4e893", "Storyteller Calm", "en-US", "", "Narration"),
-                    new Voice("8ef4a238714b45718ce04243307c57a7", "Hindi / South Asian Natural", "hi-IN", "", "Hindi & Indian"),
-                    new Voice("933563129e564b19a115bedd57b7406a", "Japanese Anime / Natural", "ja-JP", "", "Japanese")
+                    new Voice("b545c585f631496c914815291da4e893", "Storyteller Calm", "en-US", "", "English & Multilingual"),
+                    new Voice("933563129e564b19a115bedd57b7406a", "Sarah (Warm Female)", "en-US", "", "English & Multilingual"),
+                    new Voice("98655a12fa944e26b274c535e5e03842", "E-girl (EN)", "en-US", "", "English & Multilingual"),
+                    new Voice("0de8162a9e384545a0106046b57488a7", "Narration  (Hindi)", "hi-IN", "", "Hindi & Indian"),
+                    new Voice("6366ea69a97d41ada9eb855a64e56fba", "Bunty  (Hindi)", "hi-IN", "", "Hindi & Indian")
             );
         }
 
