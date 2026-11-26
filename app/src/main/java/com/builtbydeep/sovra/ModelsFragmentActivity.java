@@ -887,20 +887,33 @@ public class ModelsFragmentActivity extends Fragment {
 		java.util.ArrayList<HashMap<String, Object>> existingModels = new java.util.ArrayList<>(modelList); java.util.ArrayList<HashMap<String, Object>> orderedModels = new java.util.ArrayList<>();
 		java.util.HashSet<String> builtInUrls = new java.util.HashSet<>(); java.util.List<HashMap<String, Object>> builtInEntries = com.builtbydeep.sovra.VoiceModelCatalog.createBuiltInEntries();
 		HashMap<String, Object> edgeEntry = builtInEntries.get(0);
-		String edgeUrl = String.valueOf(edgeEntry.get("model_url"));
-		builtInUrls.add(edgeUrl);
-		HashMap<String, Object> existingEdge = _findModelByUrl(existingModels, edgeUrl);
-		orderedModels.add(_resetCatalogEntry(edgeEntry, existingEdge));
-		for (String providerId : new String[]{com.builtbydeep.sovra.CloudTtsClients.RIME,
-				com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY,
-				com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS,
-				com.builtbydeep.sovra.CloudTtsClients.WITAI}) {
-			HashMap<String, Object> cloudEntry = createCloudCatalogEntry(providerId);
-			String cloudUrl = String.valueOf(cloudEntry.get("model_url"));
-			builtInUrls.add(cloudUrl);
-			HashMap<String, Object> existingCloud = _findModelByUrl(existingModels, cloudUrl);
-			orderedModels.add(existingCloud == null ? cloudEntry : existingCloud);
-		}
+		String[] rankedProviders = new String[]{
+                        com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS,
+                        com.builtbydeep.sovra.CloudTtsClients.CARTESIA,
+                        com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY,
+                        com.builtbydeep.sovra.CloudTtsClients.FISH,
+                        com.builtbydeep.sovra.CloudTtsClients.GROQ,
+                        com.builtbydeep.sovra.CloudTtsClients.GRADIUM,
+                        "edge_tts_slot",
+                        com.builtbydeep.sovra.CloudTtsClients.RIME,
+                        com.builtbydeep.sovra.CloudTtsClients.CLOUDFLARE,
+                        com.builtbydeep.sovra.CloudTtsClients.CAPCUT,
+                        com.builtbydeep.sovra.CloudTtsClients.WITAI
+                };
+                for (String providerId : rankedProviders) {
+                        if ("edge_tts_slot".equals(providerId)) {
+                                String edgeUrl = String.valueOf(edgeEntry.get("model_url"));
+                                builtInUrls.add(edgeUrl);
+                                HashMap<String, Object> existingEdge = _findModelByUrl(existingModels, edgeUrl);
+                                orderedModels.add(_resetCatalogEntry(edgeEntry, existingEdge));
+                                continue;
+                        }
+                        HashMap<String, Object> cloudEntry = createCloudCatalogEntry(providerId);
+                        String cloudUrl = String.valueOf(cloudEntry.get("model_url"));
+                        builtInUrls.add(cloudUrl);
+                        HashMap<String, Object> existingCloud = _findModelByUrl(existingModels, cloudUrl);
+                        orderedModels.add(existingCloud == null ? cloudEntry : existingCloud);
+                }
 		for (int i = 1; i < 3; i++) {
 			HashMap<String, Object> canonical = builtInEntries.get(i); String url = String.valueOf(canonical.get("model_url")); builtInUrls.add(url); HashMap<String, Object> existing = null;
 			if (i == 2) { for (HashMap<String, Object> candidate : existingModels) { if (com.builtbydeep.sovra.SupertonicModelFiles.isSupertonicModel(candidate)) { existing = candidate; break; } } } else existing = _findModelByUrl(existingModels, url);
