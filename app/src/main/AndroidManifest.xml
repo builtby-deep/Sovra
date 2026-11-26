@@ -61,6 +61,9 @@
 		<activity
 			android:name=".ApiKeysActivity"
 			android:exported="false" />
+                <activity
+                        android:name=".FishVoiceExplorerActivity"
+                        android:exported="false" />
         
 		<activity
 			android:name=".DebugActivity"

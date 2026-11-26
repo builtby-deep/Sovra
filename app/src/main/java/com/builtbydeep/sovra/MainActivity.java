@@ -197,6 +197,19 @@ public class MainActivity extends AppCompatActivity {
 	
 	
 	@Override
+        protected void onResume() {
+                super.onResume();
+                com.builtbydeep.sovra.FishVoiceStore.init(this);
+                android.content.SharedPreferences sp1 = getSharedPreferences("sp1", MODE_PRIVATE);
+                if (sp1.getBoolean(com.builtbydeep.sovra.FishVoiceStore.KEY_SWITCH_TO_GENERATE, false)) {
+                        sp1.edit().putBoolean(com.builtbydeep.sovra.FishVoiceStore.KEY_SWITCH_TO_GENERATE, false).apply();
+                        if (binding != null && binding.viewpager != null) {
+                                binding.viewpager.setCurrentItem(0, false);
+                        }
+                }
+        }
+
+        @Override
 	public void onStart() {
 		super.onStart();
 		android.content.Intent currentIntent = getIntent();

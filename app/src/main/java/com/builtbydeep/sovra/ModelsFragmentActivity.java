@@ -339,7 +339,9 @@ public class ModelsFragmentActivity extends Fragment {
 				
 				// FIXED LOGIC: Simplified check for Active Model (Green Tick & Remove Button)
 				boolean isActiveModel = false;
-				if (isCloudTts) {
+				v.setOnClickListener(null);
+                                v.setClickable(false);
+                                if (isCloudTts) {
 					isActiveModel = activeModelType.equalsIgnoreCase("cloud-" + cloudProviderId);
 				} else if (isEdgeTts) {
 					isActiveModel = isEdgeTts && activeModelType.equalsIgnoreCase(com.builtbydeep.sovra.EdgeTtsClient.MODEL_TYPE);
@@ -361,24 +363,31 @@ public class ModelsFragmentActivity extends Fragment {
 							.setCardBackgroundColor(android.graphics.Color.parseColor("#252A40"));
 					((com.google.android.material.card.MaterialCardView) v.findViewById(R.id.cardview8))
 							.setCardBackgroundColor(android.graphics.Color.parseColor("#1C3D33"));
-					String selectedCloudModel = sp1.getString(
-							com.builtbydeep.sovra.CloudTtsClients.getSelectedModelPreference(cloudProviderId),
-							com.builtbydeep.sovra.CloudTtsClients.defaultModel(cloudProviderId));
-					txtModelSub.setText(com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(cloudProviderId)
-							? "8 Curated Voices • Unlimited/mo"
-							: com.builtbydeep.sovra.CloudTtsClients.modelLabel(
-									cloudProviderId, selectedCloudModel) + " • "
-									+ com.builtbydeep.sovra.CloudTtsClients.quotaLabel(
-											cloudProviderId, selectedCloudModel));
-					progressBar.setVisibility(android.view.View.GONE);
-					btnDelete.setVisibility(hasMultipleCloudModels(cloudProviderId) ? android.view.View.VISIBLE : android.view.View.GONE);
-					android.widget.ImageView tuneIcon = v.findViewById(R.id.imageview9);
-					tuneIcon.setImageResource(R.drawable.icon_tune);
-					tuneIcon.setContentDescription("Choose cloud sub-model");
-					selectIv.setVisibility(isActiveModel ? android.view.View.VISIBLE : android.view.View.GONE);
-					useRemoveTv.setText("Use Voice");
-					btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor(
-							isActiveModel ? "#1C3D33" : "#1D61FF"));
+					com.builtbydeep.sovra.FishVoiceStore.init(context);
+                                        String selectedCloudModel = sp1.getString(
+                                                        com.builtbydeep.sovra.CloudTtsClients.getSelectedModelPreference(cloudProviderId),
+                                                        com.builtbydeep.sovra.CloudTtsClients.defaultModel(cloudProviderId));
+                                        boolean isFishCard = com.builtbydeep.sovra.CloudTtsClients.FISH.equals(cloudProviderId);
+                                        txtModelSub.setText(com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(cloudProviderId)
+                                                        ? "8 Curated Voices • Unlimited/mo"
+                                                        : (isFishCard ? "2M+ Live Voices • " : "")
+                                                                        + com.builtbydeep.sovra.CloudTtsClients.modelLabel(
+                                                                        cloudProviderId, selectedCloudModel) + " • "
+                                                                        + com.builtbydeep.sovra.CloudTtsClients.quotaLabel(
+                                                                                        cloudProviderId, selectedCloudModel));
+                                        progressBar.setVisibility(android.view.View.GONE);
+                                        btnDelete.setVisibility(hasMultipleCloudModels(cloudProviderId) ? android.view.View.VISIBLE : android.view.View.GONE);
+                                        android.widget.ImageView tuneIcon = v.findViewById(R.id.imageview9);
+                                        tuneIcon.setImageResource(R.drawable.icon_tune);
+                                        tuneIcon.setContentDescription("Choose cloud sub-model");
+                                        selectIv.setVisibility(isActiveModel ? android.view.View.VISIBLE : android.view.View.GONE);
+                                        useRemoveTv.setText(isFishCard ? "Explore" : "Use Voice");
+                                        btnUseVoice.setCardBackgroundColor(android.graphics.Color.parseColor(
+                                                        isActiveModel ? "#1C3D33" : "#1D61FF"));
+                                        if (isFishCard) {
+                                                v.setOnClickListener(cardView -> context.startActivity(
+                                                                new android.content.Intent(context, com.builtbydeep.sovra.FishVoiceExplorerActivity.class)));
+                                        }
 				} else if (isEdgeTts) {
 					((android.widget.TextView) v.findViewById(R.id.onnx_tv)).setText("CLOUD");
 					((android.widget.TextView) v.findViewById(R.id.json_tv)).setText("ONLINE");
@@ -494,7 +503,11 @@ public class ModelsFragmentActivity extends Fragment {
 						android.widget.Toast.makeText(context, "Please wait, audio generation in progress...", android.widget.Toast.LENGTH_SHORT).show();
 						try { com.builtbydeep.sovra.KokoroEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.VoiceEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel(); } catch (Throwable ignored) {} return;
 					}
-					if (!capturedCloudProvider.isEmpty()) {
+					if (com.builtbydeep.sovra.CloudTtsClients.FISH.equals(capturedCloudProvider)) {
+                                                context.startActivity(new android.content.Intent(context, com.builtbydeep.sovra.FishVoiceExplorerActivity.class));
+                                                return;
+                                        }
+                                        if (!capturedCloudProvider.isEmpty()) {
 						String apiKey = sp1.getString(
 								com.builtbydeep.sovra.CloudTtsClients.getApiKeyPreference(capturedCloudProvider), "").trim();
 						if (apiKey.isEmpty() && !com.builtbydeep.sovra.ExtendedCloudProviders.isKeyless(capturedCloudProvider)) {

@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:background="@drawable/bg_fish_card"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:padding="12dp">
+
+    <!-- Left: Gender Avatar + Small Play/Pause Overlay Icon -->
+    <FrameLayout
+        android:id="@+id/btn_preview_avatar"
+        android:layout_width="52dp"
+        android:layout_height="52dp"
+        android:clickable="true"
+        android:focusable="true">
+
+        <ImageView
+            android:id="@+id/iv_gender_avatar"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:layout_gravity="top|start"
+            android:contentDescription="Speaker gender avatar"
+            android:src="@drawable/ic_female_avatar" />
+
+        <FrameLayout
+            android:layout_width="22dp"
+            android:layout_height="22dp"
+            android:layout_gravity="bottom|end"
+            android:background="@drawable/bg_fish_play_badge">
+
+            <ImageView
+                android:id="@+id/iv_play_state"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:layout_gravity="center"
+                android:contentDescription="Play voice sample"
+                android:src="@drawable/icon_play_circle"
+                android:tint="#38BDF8" />
+        </FrameLayout>
+    </FrameLayout>
+
+    <!-- Center: Name + Flag, Subtitle, Style Tags -->
+    <LinearLayout
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="12dp"
+        android:layout_marginEnd="8dp"
+        android:layout_weight="1"
+        android:orientation="vertical">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_voice_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:text="Aria (Soft Emotional)"
+                android:textColor="#F8FAFC"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/tv_voice_flag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:text="🇺🇸"
+                android:textSize="14sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/tv_voice_meta"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="3dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="s2.1-pro-free • 1.2M uses"
+            android:textColor="#94A3B8"
+            android:textSize="12sp" />
+
+        <LinearLayout
+            android:id="@+id/layout_tags"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/tv_tag_1"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_fish_tag"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:text="Whisper"
+                android:textColor="#CBD5E1"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/tv_tag_2"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:background="@drawable/bg_fish_tag"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:paddingStart="8dp"
+                android:paddingTop="2dp"
+                android:paddingEnd="8dp"
+                android:paddingBottom="2dp"
+                android:text="Dramatic"
+                android:textColor="#CBD5E1"
+                android:textSize="11sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <!-- Right: Star (Favorite) + Compact USE Button -->
+    <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="end"
+        android:orientation="vertical">
+
+        <ImageView
+            android:id="@+id/btn_star_favorite"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Favorite voice"
+            android:padding="4dp"
+            android:src="@drawable/icon_favorite_outline"
+            android:tint="#64748B" />
+
+        <TextView
+            android:id="@+id/btn_use_voice_item"
+            android:layout_width="60dp"
+            android:layout_height="30dp"
+            android:layout_marginTop="6dp"
+            android:background="@drawable/bg_fish_use_btn"
+            android:gravity="center"
+            android:text="USE"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

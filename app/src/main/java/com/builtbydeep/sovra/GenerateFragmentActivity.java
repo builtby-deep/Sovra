@@ -1251,9 +1251,16 @@ if (autoStart || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
 						com.builtbydeep.sovra.EdgeTtsClient.formatDisplayName(voice, gender));
 			} else if (isCloudTts) {
 				String providerId = cloudProviderFromType(activeModelType);
-				binding.voiceNameTv.setText(sp1.getString("cloud_voice_" + providerId,
+				if (com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)) {
+                                        com.builtbydeep.sovra.FishVoiceStore.init(requireContext());
+                                        String displayLabel = com.builtbydeep.sovra.FishVoiceStore.getSavedVoiceDisplayName(requireContext());
+                                        binding.voiceNameTv.setText(displayLabel.isEmpty() ? "Select cloud voice" : displayLabel);
+                                        updateCloudTtsFilters(true);
+                                } else {
+                                        binding.voiceNameTv.setText(sp1.getString("cloud_voice_" + providerId,
 						"").isEmpty() ? "Select cloud voice" : sp1.getString(
 								"cloud_voice_" + providerId, ""));
+                                }
 			} else if (isSupertonic) {
 				int speakerId = sp1.getInt("active_supertonic_speaker", 0);
 				com.builtbydeep.sovra.SupertonicEngine.getInstance().setActiveSpeakerId(speakerId);
@@ -2003,7 +2010,12 @@ if (autoStart || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
 					java.util.Collections.singletonList("API key required")));
 			return;
 		}
-		String cacheKey = providerId + "|" + modelId + "|" + apiKey.hashCode();
+		if (com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)) {
+                        com.builtbydeep.sovra.FishVoiceStore.init(requireContext());
+                }
+                int fishRev = com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)
+                                ? com.builtbydeep.sovra.FishVoiceStore.getRevision(requireContext()) : 0;
+                String cacheKey = providerId + "|" + modelId + "|" + apiKey.hashCode() + "|" + fishRev;
 		if (cacheKey.equals(cloudVoiceCacheKey) && !cloudVoices.isEmpty()) {
 			bindCloudVoices(providerId, modelId, cloudVoices);
 			return;
@@ -2150,7 +2162,11 @@ if (autoStart || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
 						.putString("cloud_locale_" + providerId, selected.locale)
 						.putString("cloud_region_" + providerId, selected.region)
 						.putString("active_language", selected.locale).apply();
-				binding.voiceNameTv.setText(selected.displayName());
+				if (com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)
+                                                && com.builtbydeep.sovra.FishVoiceStore.isFavorite(requireContext(), selected.id)) {
+                                        com.builtbydeep.sovra.FishVoiceStore.clearTempUseVoice(requireContext());
+                                }
+                                binding.voiceNameTv.setText(selected.displayName());
 				if (!previous.equals(selected.id)) {
 					_forceResetToIdle();
 				}
