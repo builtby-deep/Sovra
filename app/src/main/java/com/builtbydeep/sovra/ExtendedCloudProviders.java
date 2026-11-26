@@ -335,10 +335,7 @@ public final class ExtendedCloudProviders {
             } catch (org.json.JSONException e) {
                 throw new IOException("Gradium request failed.", e);
             }
-        }
-    }
-
-
+        
         private static byte[] normalizeGradiumAudio(byte[] raw) throws IOException {
             if (raw == null || raw.length == 0) throw new IOException("Gradium returned empty audio.");
             if (raw[0] == '{') {
@@ -427,3 +424,6 @@ public final class ExtendedCloudProviders {
         }
     }
 }
+    }
+    }
+
