@@ -173,9 +173,19 @@ public final class ExtendedCloudProviders {
                     new Voice("7f92f8afb8ec43bf81429cc1c9199cb1", "Energetic Male", "en-US", "", "English & Multilingual"),
                     new Voice("b545c585f631496c914815291da4e893", "Storyteller Calm", "en-US", "", "English & Multilingual"),
                     new Voice("933563129e564b19a115bedd57b7406a", "Sarah (Warm Female)", "en-US", "", "English & Multilingual"),
-                    new Voice("98655a12fa944e26b274c535e5e03842", "E-girl (EN)", "en-US", "", "English & Multilingual"),
-                    new Voice("0de8162a9e384545a0106046b57488a7", "Narration  (Hindi)", "hi-IN", "", "Hindi & Indian"),
-                    new Voice("6366ea69a97d41ada9eb855a64e56fba", "Bunty  (Hindi)", "hi-IN", "", "Hindi & Indian")
+                    new Voice("8ec9973300874562962bbcb300f82213", "Guyzo", "en-US", "", "English & Multilingual"),
+                    new Voice("c5f56a6cc2ec4fa8920cb4c5889a3fb7", "Slax", "en-US", "", "English & Multilingual"),
+                    new Voice("bf322df2096a46f18c579d0baa36f41d", "Adrian", "en-US", "", "English & Multilingual"),
+                    new Voice("a2346273eb314b6cb82ba83dbc9d9fee", "Markiplier.", "en-US", "", "English & Multilingual"),
+                    new Voice("4c6a6762e4ac4bdebdb4fa8525d054a2", "ATOMIC", "en-US", "", "English & Multilingual"),
+                    new Voice("536d3a5e000945adb7038665781a4aca", "Ethan", "en-US", "", "English & Multilingual"),
+                    new Voice("03397b4c4be74759b72533b663fbd001", "Elon Musk(Noise reduction)", "en-US", "", "English & Multilingual"),
+                    new Voice("0de8162a9e384545a0106046b57488a7", "Narration (Hindi)", "hi-IN", "", "Hindi & Indian"),
+                    new Voice("6366ea69a97d41ada9eb855a64e56fba", "Bunty (Hindi)", "hi-IN", "", "Hindi & Indian"),
+                    new Voice("b79b6174191548d08af0fb6bf0396127", "Hindi Gojo Voice", "hi-IN", "", "Hindi & Indian"),
+                    new Voice("4d7609058bd34213b1378b29efbde1f1", "Girl hindi", "hi-IN", "", "Hindi & Indian"),
+                    new Voice("cf5dd04d673d4219b988f4d84e7f8bee", "Amitabh Bachan (Hindi)", "hi-IN", "", "Hindi & Indian"),
+                    new Voice("a8c38987c1f94781b5a98342c9ba7860", "Filipino (Hindi)", "hi-IN", "", "Hindi & Indian")
             );
         }
 
