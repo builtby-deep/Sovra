@@ -58,6 +58,10 @@ import com.google.android.material.snackbar.Snackbar;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import android.database.Cursor;
+import com.builtbydeep.sovra.cloud.CloudApiKeyManager;
+import com.builtbydeep.sovra.cloud.CloudModelCatalog;
+import com.builtbydeep.sovra.cloud.CloudTtsProvider;
+import com.builtbydeep.sovra.cloud.CloudTtsRegistry;
 
 public class ModelsFragmentActivity extends Fragment {
 	
@@ -311,6 +315,7 @@ public class ModelsFragmentActivity extends Fragment {
 				boolean isKokoro = item.containsKey("type") && item.get("type").toString().equalsIgnoreCase("kokoro");
 				boolean isSupertonic = com.builtbydeep.sovra.SupertonicModelFiles.isSupertonicModel(item);
 				boolean isPiperArchive = com.builtbydeep.sovra.PiperModelCatalog.isCatalogModel(item);
+				boolean isCloud = "cloud".equalsIgnoreCase(String.valueOf(item.get("type")));
 				
 				String modelName = "Unknown Model";
 				if (item.containsKey("name") && item.get("name") != null && !item.get("name").toString().trim().isEmpty()) modelName = item.get("name").toString();
@@ -327,7 +332,7 @@ public class ModelsFragmentActivity extends Fragment {
 				String currentOnnx = item.containsKey("onnx_path") && item.get("onnx_path") != null ? item.get("onnx_path").toString() : "";
 				String currentModelDir = item.containsKey("model_dir") && item.get("model_dir") != null ? item.get("model_dir").toString() : "";
 				
-				boolean isDownloaded = isSupertonic ? com.builtbydeep.sovra.SupertonicModelFiles.isInstalled(new java.io.File(currentModelDir)) : isKokoro ? com.builtbydeep.sovra.KokoroModelFiles.isInstalled(new java.io.File(currentModelDir)) : isPiperArchive ? com.builtbydeep.sovra.PiperModelCatalog.isInstalled(new java.io.File(currentModelDir)) : !currentOnnx.isEmpty();
+				boolean isDownloaded = isCloud ? true : isSupertonic ? com.builtbydeep.sovra.SupertonicModelFiles.isInstalled(new java.io.File(currentModelDir)) : isKokoro ? com.builtbydeep.sovra.KokoroModelFiles.isInstalled(new java.io.File(currentModelDir)) : isPiperArchive ? com.builtbydeep.sovra.PiperModelCatalog.isInstalled(new java.io.File(currentModelDir)) : !currentOnnx.isEmpty();
 				boolean isDownloading = item.containsKey("is_downloading") && item.get("is_downloading").toString().equals("true");
 				int progress = item.containsKey("download_progress") ? Integer.parseInt(item.get("download_progress").toString()) : 0;
 				
@@ -335,7 +340,9 @@ public class ModelsFragmentActivity extends Fragment {
 				
 				// FIXED LOGIC: Simplified check for Active Model (Green Tick & Remove Button)
 				boolean isActiveModel = false;
-				if (isSupertonic) {
+				if (isCloud) {
+					isActiveModel = String.valueOf(item.get("cloud_provider")).equals(sp1.getString("active_cloud_provider", ""));
+				} else if (isSupertonic) {
 					isActiveModel = !currentModelDir.isEmpty() && currentModelDir.equals(activeSupertonicDir) && activeModelType.equalsIgnoreCase(com.builtbydeep.sovra.SupertonicModelFiles.MODEL_TYPE);
 				} else {
 					isActiveModel = !currentOnnx.isEmpty() && currentOnnx.equals(activeOnnx);
@@ -434,6 +441,38 @@ public class ModelsFragmentActivity extends Fragment {
 				btnUseVoice.setOnClickListener(view -> {
 					if (isLoading) return;
 					int clickedPos = holder.getAdapterPosition(); if (clickedPos == androidx.recyclerview.widget.RecyclerView.NO_POSITION) return;
+					if (isCloud) {
+						String providerId = String.valueOf(item.get("cloud_provider"));
+						CloudTtsProvider provider = CloudTtsRegistry.get(providerId);
+						if (provider == null) return;
+						if (provider.requiresApiKey()) {
+							SharedPreferences keys = context.getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
+							boolean missing = false;
+							if ("fish_audio".equals(providerId)) missing = keys.getString("fish_api_key", "").trim().isEmpty();
+							else if ("groq_orpheus".equals(providerId)) missing = keys.getString("groq_api_key", "").trim().isEmpty();
+							else if ("cartesia_sonic".equals(providerId)) missing = keys.getString("cartesia_api_key", "").trim().isEmpty();
+							else if ("gradium_ai".equals(providerId)) missing = keys.getString("gradium_api_key", "").trim().isEmpty();
+							else if ("cloudflare_aura".equals(providerId)) missing = keys.getString("cloudflare_account_id", "").trim().isEmpty()
+									|| keys.getString("cloudflare_api_token", "").trim().isEmpty();
+							if (missing) {
+								com.builtbydeep.sovra.cloud.CloudApiKeyManager.show(context);
+								return;
+							}
+						}
+						String activeCloud = sp1.getString("active_cloud_provider", "");
+						if (providerId.equals(activeCloud)) {
+							sp1.edit().putString("active_cloud_provider", "").apply();
+						} else {
+							sp1.edit().putString("active_cloud_provider", providerId)
+									.putString("active_model", "")
+									.putString("active_tokens", "")
+									.putString("active_model_name", provider.getName())
+									.putString("active_model_type", "cloud")
+									.apply();
+						}
+						if (binding.recyclerviewModels.getAdapter() != null) binding.recyclerviewModels.getAdapter().notifyDataSetChanged();
+						return;
+					}
 					if (com.builtbydeep.sovra.KokoroEngine.getInstance().isBusy() || com.builtbydeep.sovra.VoiceEngine.getInstance().isBusy() || com.builtbydeep.sovra.SupertonicEngine.getInstance().isBusy()) {
 						android.widget.Toast.makeText(context, "Please wait, audio generation in progress...", android.widget.Toast.LENGTH_SHORT).show();
 						try { com.builtbydeep.sovra.KokoroEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.VoiceEngine.getInstance().cancel(); } catch (Throwable ignored) {} try { com.builtbydeep.sovra.SupertonicEngine.getInstance().cancel(); } catch (Throwable ignored) {} return;
@@ -713,6 +752,17 @@ public class ModelsFragmentActivity extends Fragment {
 		// GRID LAYOUT MANAGER (2 COLUMNS)
 		binding.recyclerviewModels.setLayoutManager(new androidx.recyclerview.widget.GridLayoutManager(getContext(), 2));
 		String savedData = sp1.getString("models_data", "[]"); modelList = new Gson().fromJson(savedData, new TypeToken<ArrayList<HashMap<String, Object>>>(){}.getType()); if (modelList == null) modelList = new ArrayList<>();
+		for (HashMap<String, Object> cloudEntry : com.builtbydeep.sovra.cloud.CloudModelCatalog.createEntries()) {
+			String providerId = String.valueOf(cloudEntry.get("cloud_provider"));
+			boolean found = false;
+			for (HashMap<String, Object> existing : modelList) {
+				if (providerId.equals(String.valueOf(existing.get("cloud_provider")))) {
+					found = true;
+					break;
+				}
+			}
+			if (!found) modelList.add(cloudEntry);
+		}
 		boolean hasSupertonicCard = false; boolean modelsDataChanged = false; java.io.File kokoroModelDir = com.builtbydeep.sovra.KokoroModelFiles.getModelDirectory(getContext());
 		String expectedKokoroOnnx = new java.io.File(kokoroModelDir, com.builtbydeep.sovra.KokoroModelFiles.MODEL_FILE_NAME).getAbsolutePath(); String activeKokoroOnnx = sp1.getString("active_model", ""); boolean hadActiveKokoro = "kokoro".equalsIgnoreCase(sp1.getString("active_model_type", ""));
 		for (int i = modelList.size() - 1; i >= 0; i--) {

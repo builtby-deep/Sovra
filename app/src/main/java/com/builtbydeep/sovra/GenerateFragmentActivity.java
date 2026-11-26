@@ -104,6 +104,73 @@ public class GenerateFragmentActivity extends Fragment {
 	private SharedPreferences sp3;
 	private Intent FilePicker = new Intent(Intent.ACTION_GET_CONTENT);
 	private SharedPreferences spHistory;
+
+	private void _generateCloudAudio(String providerId, String text) {
+		com.builtbydeep.sovra.cloud.CloudTtsProvider provider =
+				com.builtbydeep.sovra.cloud.CloudTtsRegistry.get(providerId);
+		if (provider == null) {
+			Toast.makeText(getContext(), "Cloud TTS provider is unavailable", Toast.LENGTH_SHORT).show();
+			return;
+		}
+		if (provider.requiresApiKey()) {
+			SharedPreferences keys = sp1;
+			SharedPreferences cloudKeys = getContext().getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
+			boolean missing = false;
+			if ("fish_audio".equals(providerId)) missing = cloudKeys.getString("fish_api_key", "").trim().isEmpty();
+			else if ("groq_orpheus".equals(providerId)) missing = cloudKeys.getString("groq_api_key", "").trim().isEmpty();
+			else if ("cartesia_sonic".equals(providerId)) missing = cloudKeys.getString("cartesia_api_key", "").trim().isEmpty();
+			else if ("gradium_ai".equals(providerId)) missing = cloudKeys.getString("gradium_api_key", "").trim().isEmpty();
+			else if ("cloudflare_aura".equals(providerId)) missing = cloudKeys.getString("cloudflare_account_id", "").trim().isEmpty()
+					|| cloudKeys.getString("cloudflare_api_token", "").trim().isEmpty();
+			if (missing) {
+				com.builtbydeep.sovra.cloud.CloudApiKeyManager.show(getContext());
+				return;
+			}
+		}
+		com.builtbydeep.sovra.cloud.CloudVoiceOptions options =
+				new com.builtbydeep.sovra.cloud.CloudVoiceOptions();
+		options.speed = sp3.getFloat("voice_speed", 1.0f);
+		options.pitch = sp3.getFloat("voice_pitch", 1.0f);
+		options.voiceId = sp1.getString("cloud_" + providerId + "_voice_id", "");
+		options.voice = sp1.getString("cloud_" + providerId + "_voice", "");
+		binding.progressGenerating.setVisibility(View.VISIBLE);
+		binding.imageview65.setVisibility(View.GONE);
+		binding.textview69.setText("Generating cloud audio...");
+		new Thread(() -> {
+			try {
+				byte[] audio = com.builtbydeep.sovra.cloud.MultiChunkAudioEngine.synthesize(
+						getContext(), provider, text, options,
+						(chunk, total) -> requireActivity().runOnUiThread(() ->
+								binding.textview69.setText("Generating chunk " + chunk + " / " + total + "...")));
+				boolean mp3 = provider instanceof com.builtbydeep.sovra.cloud.FishAudioProvider
+						|| provider instanceof com.builtbydeep.sovra.cloud.CartesiaSonicProvider
+						|| provider instanceof com.builtbydeep.sovra.cloud.CloudflareAuraProvider;
+				File output = new File(requireContext().getCacheDir(),
+						"sovra_cloud_output." + (mp3 ? "mp3" : "wav"));
+				try (FileOutputStream out = new FileOutputStream(output)) {
+					out.write(audio);
+				}
+				requireActivity().runOnUiThread(() -> {
+					binding.progressGenerating.setVisibility(View.GONE);
+					binding.imageview65.setVisibility(View.VISIBLE);
+					binding.textview69.setText("Cloud audio ready");
+					try {
+						MediaPlayer player = new MediaPlayer();
+						player.setDataSource(output.getAbsolutePath());
+						player.prepare();
+						player.start();
+						player.setOnCompletionListener(MediaPlayer::release);
+						Toast.makeText(getContext(), "Cloud synthesis complete", Toast.LENGTH_SHORT).show();
+					} catch (Exception e) {
+						Toast.makeText(getContext(), "Could not play cloud audio: " + e.getMessage(), Toast.LENGTH_LONG).show();
+					}
+				});
+			} catch (Exception e) {
+				requireActivity().runOnUiThread(() ->
+						Toast.makeText(getContext(), "Cloud TTS error: " + e.getMessage(), Toast.LENGTH_LONG).show());
+			}
+		}).start();
+	}
 	
 	@NonNull
 	@Override
@@ -193,6 +260,12 @@ public class GenerateFragmentActivity extends Fragment {
 						com.google.android.material.snackbar.Snackbar.make(getView(), "Please enter some text first.", com.google.android.material.snackbar.Snackbar.LENGTH_SHORT)
 						.setBackgroundTint(android.graphics.Color.parseColor("#EF4444")).setTextColor(android.graphics.Color.WHITE).show();
 					}
+					return;
+				}
+
+				String activeCloudProvider = sp1.getString("active_cloud_provider", "");
+				if (!activeCloudProvider.isEmpty()) {
+					_generateCloudAudio(activeCloudProvider, inputText);
 					return;
 				}
 				

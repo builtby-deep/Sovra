@@ -170,6 +170,36 @@ public class SettingFragmentActivity extends Fragment {
 	}
 	
 	private void initializeLogic() {
+		// Cloud TTS key management is isolated from local model settings.
+		if (binding.linear29 != null) {
+			LinearLayout cloudSection = new LinearLayout(getContext());
+			cloudSection.setOrientation(LinearLayout.VERTICAL);
+			cloudSection.setPadding(0, 24, 0, 0);
+			TextView heading = new TextView(getContext());
+			heading.setText("CLOUD TTS");
+			heading.setTextSize(12);
+			heading.setTypeface(null, Typeface.BOLD);
+			heading.setTextColor(Color.parseColor("#00E5FF"));
+			cloudSection.addView(heading);
+			com.google.android.material.card.MaterialCardView card =
+					new com.google.android.material.card.MaterialCardView(getContext());
+			card.setCardBackgroundColor(Color.parseColor("#1A1D2E"));
+			card.setRadius(32);
+			card.setStrokeColor(Color.parseColor("#2A2F45"));
+			card.setStrokeWidth(2);
+			LinearLayout row = new LinearLayout(getContext());
+			row.setOrientation(LinearLayout.HORIZONTAL);
+			row.setPadding(32, 32, 32, 32);
+			TextView title = new TextView(getContext());
+			title.setText("API Keys & Cloud Settings");
+			title.setTextColor(Color.WHITE);
+			title.setTextSize(16);
+			row.addView(title);
+			card.addView(row);
+			card.setOnClickListener(v -> com.builtbydeep.sovra.cloud.CloudApiKeyManager.show(getContext()));
+			cloudSection.addView(card);
+			binding.linear29.addView(cloudSection);
+		}
 		// 1. App Version Setup (Dynamic fetch)
 		try {
 			PackageInfo pInfo = getContext().getPackageManager().getPackageInfo(getContext().getPackageName(), 0);
