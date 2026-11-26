@@ -330,13 +330,47 @@ public final class ExtendedCloudProviders {
                         .build();
                 try (Response res = HTTP.newCall(req).execute()) {
                     if (!res.isSuccessful() || res.body() == null) throw new IOException("Gradium HTTP " + res.code());
-                    return res.body().bytes();
+                    return normalizeGradiumAudio(res.body().bytes());
                 }
             } catch (org.json.JSONException e) {
                 throw new IOException("Gradium request failed.", e);
             }
         }
     }
+
+
+        private static byte[] normalizeGradiumAudio(byte[] raw) throws IOException {
+            if (raw == null || raw.length == 0) throw new IOException("Gradium returned empty audio.");
+            if (raw[0] == '{') {
+                try {
+                    JSONObject obj = new JSONObject(new String(raw, java.nio.charset.StandardCharsets.UTF_8));
+                    String b64 = obj.optString("audio", obj.optString("data", ""));
+                    if (b64.isEmpty()) throw new IOException("Gradium error: " + obj.optString("detail", obj.toString()));
+                    raw = android.util.Base64.decode(b64, android.util.Base64.DEFAULT);
+                } catch (org.json.JSONException e) {
+                    throw new IOException("Invalid Gradium JSON response.", e);
+                }
+            }
+            if (raw.length > 44 && raw[0] == 'R' && raw[1] == 'I' && raw[2] == 'F' && raw[3] == 'F') {
+                java.nio.ByteBuffer bb = java.nio.ByteBuffer.wrap(raw).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+                bb.putInt(4, raw.length - 8);
+                for (int i = 12; i < raw.length - 8; i++) {
+                    if (raw[i] == 'd' && raw[i + 1] == 'a' && raw[i + 2] == 't' && raw[i + 3] == 'a') {
+                        bb.putInt(i + 4, raw.length - (i + 8));
+                        break;
+                    }
+                }
+                return raw;
+            }
+            int sampleRate = 48000, channels = 1, bits = 16;
+            int byteRate = sampleRate * channels * bits / 8;
+            java.nio.ByteBuffer wav = java.nio.ByteBuffer.allocate(44 + raw.length).order(java.nio.ByteOrder.LITTLE_ENDIAN);
+            wav.put(new byte[]{'R','I','F','F'}).putInt(36 + raw.length).put(new byte[]{'W','A','V','E'});
+            wav.put(new byte[]{'f','m','t',' '}).putInt(16).putShort((short) 1).putShort((short) channels);
+            wav.putInt(sampleRate).putInt(byteRate).putShort((short) (channels * bits / 8)).putShort((short) bits);
+            wav.put(new byte[]{'d','a','t','a'}).putInt(raw.length).put(raw);
+            return wav.array();
+        }
 
     // 6. Cloudflare Workers AI (Deepgram Aura-2) - Enter key as "ACCOUNT_ID:API_TOKEN"
     static final class CloudflareClient implements CloudTtsProvider {
