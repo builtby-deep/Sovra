@@ -497,7 +497,7 @@ public class ModelsFragmentActivity extends Fragment {
 					if (!capturedCloudProvider.isEmpty()) {
 						String apiKey = sp1.getString(
 								com.builtbydeep.sovra.CloudTtsClients.getApiKeyPreference(capturedCloudProvider), "").trim();
-						if (apiKey.isEmpty()) {
+						if (apiKey.isEmpty() && !com.builtbydeep.sovra.ExtendedCloudProviders.isKeyless(capturedCloudProvider)) {
 							new com.google.android.material.dialog.MaterialAlertDialogBuilder(context)
 									.setTitle("API key required")
 									.setMessage("Add your " + finalModelName + " API key in Settings to use this cloud voice.")
@@ -946,6 +946,12 @@ public class ModelsFragmentActivity extends Fragment {
 		if (normalized.equals("cloud-speechify")) return com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY;
 		if (normalized.equals("cloud-elevenlabs")) return com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS;
 		if (normalized.equals("cloud-witai")) return com.builtbydeep.sovra.CloudTtsClients.WITAI;
+                if (normalized.equals("cloud-capcut")) return com.builtbydeep.sovra.CloudTtsClients.CAPCUT;
+                if (normalized.equals("cloud-fish")) return com.builtbydeep.sovra.CloudTtsClients.FISH;
+                if (normalized.equals("cloud-groq")) return com.builtbydeep.sovra.CloudTtsClients.GROQ;
+                if (normalized.equals("cloud-cartesia")) return com.builtbydeep.sovra.CloudTtsClients.CARTESIA;
+                if (normalized.equals("cloud-gradium")) return com.builtbydeep.sovra.CloudTtsClients.GRADIUM;
+                if (normalized.equals("cloud-cloudflare")) return com.builtbydeep.sovra.CloudTtsClients.CLOUDFLARE;
 		return "";
 	}
 

@@ -1994,7 +1994,7 @@ if (autoStart || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
 		binding.voiceInfoCard.setVisibility(android.view.View.GONE);
 		binding.opneDropdown.setVisibility(android.view.View.GONE);
 		binding.kokoroVoiceFilters.setVisibility(android.view.View.VISIBLE);
-		if (!com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId) && apiKey.isEmpty()) {
+		if (!com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId) && !com.builtbydeep.sovra.ExtendedCloudProviders.isKeyless(providerId) && apiKey.isEmpty()) {
 			binding.voiceNameTv.setText("Add API key in Settings");
 			binding.kokoroRegionSpinner.setAdapter(createKokoroSpinnerAdapter(
 					java.util.Collections.singletonList("API key required")));
@@ -2165,6 +2165,12 @@ if (autoStart || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
 		if (normalized.equals("cloud-speechify")) return com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY;
 		if (normalized.equals("cloud-elevenlabs")) return com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS;
 		if (normalized.equals("cloud-witai")) return com.builtbydeep.sovra.CloudTtsClients.WITAI;
+                if (normalized.equals("cloud-capcut")) return com.builtbydeep.sovra.CloudTtsClients.CAPCUT;
+                if (normalized.equals("cloud-fish")) return com.builtbydeep.sovra.CloudTtsClients.FISH;
+                if (normalized.equals("cloud-groq")) return com.builtbydeep.sovra.CloudTtsClients.GROQ;
+                if (normalized.equals("cloud-cartesia")) return com.builtbydeep.sovra.CloudTtsClients.CARTESIA;
+                if (normalized.equals("cloud-gradium")) return com.builtbydeep.sovra.CloudTtsClients.GRADIUM;
+                if (normalized.equals("cloud-cloudflare")) return com.builtbydeep.sovra.CloudTtsClients.CLOUDFLARE;
 		return "";
 	}
 

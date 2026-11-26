@@ -50,9 +50,11 @@ public final class ApiKeysActivity extends AppCompatActivity {
     private static final int CYAN = Color.rgb(0, 229, 255);
     private static final int MUTED = Color.rgb(148, 163, 184);
     private static final int SURFACE = Color.rgb(26, 29, 46);
-    private static final int[] PROVIDER_BADGES = {0xFF00E5FF, 0xFF8B9EFF, 0xFFFFB86B, 0xFF84E1BC};
+    private static final int[] PROVIDER_BADGES = {0xFF00E5FF, 0xFF8B9EFF, 0xFFFFB86B, 0xFF84E1BC, 0xFFF472B6, 0xFFFB923C, 0xFF38BDF8, 0xFFA78BFA, 0xFFFACC15};
     private static final String[] PROVIDERS = {CloudTtsClients.RIME, CloudTtsClients.SPEECHIFY,
-            CloudTtsClients.ELEVENLABS, CloudTtsClients.WITAI};
+            CloudTtsClients.ELEVENLABS, CloudTtsClients.WITAI,
+            CloudTtsClients.FISH, CloudTtsClients.GROQ,
+            CloudTtsClients.CARTESIA, CloudTtsClients.GRADIUM, CloudTtsClients.CLOUDFLARE};
     private SharedPreferences preferences;
     private GridLayout providerGrid;
     private View popupScrim;
@@ -465,7 +467,9 @@ public final class ApiKeysActivity extends AppCompatActivity {
         keyInput.setSingleLine(true);
         keyInput.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         keyInput.setHint(providerId.equals(CloudTtsClients.WITAI)
-                ? "Server access token" : "API key");
+                ? "Server access token"
+                : providerId.equals(CloudTtsClients.CLOUDFLARE)
+                ? "ACCOUNT_ID:API_TOKEN" : "API key");
         keyInput.setTextColor(Color.WHITE);
         keyInput.setHintTextColor(Color.rgb(100, 116, 139));
         keyInput.setBackground(roundBackground(Color.rgb(15, 20, 30), dp(12)));
@@ -570,14 +574,26 @@ public final class ApiKeysActivity extends AppCompatActivity {
         if (CloudTtsClients.RIME.equals(id)) return "Rime AI";
         if (CloudTtsClients.SPEECHIFY.equals(id)) return "SpeechifyAI";
         if (CloudTtsClients.ELEVENLABS.equals(id)) return "ElevenLabs";
-        return "Wit.ai";
+        if (CloudTtsClients.WITAI.equals(id)) return "Wit.ai";
+        if (CloudTtsClients.FISH.equals(id)) return "Fish Audio";
+        if (CloudTtsClients.GROQ.equals(id)) return "Groq Orpheus";
+        if (CloudTtsClients.CARTESIA.equals(id)) return "Cartesia";
+        if (CloudTtsClients.GRADIUM.equals(id)) return "Gradium AI";
+        if (CloudTtsClients.CLOUDFLARE.equals(id)) return "Cloudflare";
+        return id;
     }
 
     private static String providerBadge(String id) {
         if (CloudTtsClients.RIME.equals(id)) return "R";
         if (CloudTtsClients.SPEECHIFY.equals(id)) return "S";
         if (CloudTtsClients.ELEVENLABS.equals(id)) return "E";
-        return "W";
+        if (CloudTtsClients.WITAI.equals(id)) return "W";
+        if (CloudTtsClients.FISH.equals(id)) return "F";
+        if (CloudTtsClients.GROQ.equals(id)) return "G";
+        if (CloudTtsClients.CARTESIA.equals(id)) return "C";
+        if (CloudTtsClients.GRADIUM.equals(id)) return "A";
+        if (CloudTtsClients.CLOUDFLARE.equals(id)) return "CF";
+        return "C";
     }
 
     private GradientDrawable roundBackground(int color, int radius) {

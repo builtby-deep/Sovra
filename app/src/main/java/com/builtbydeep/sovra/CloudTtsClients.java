@@ -21,6 +21,12 @@ public final class CloudTtsClients {
     public static final String SPEECHIFY = "speechify";
     public static final String ELEVENLABS = "elevenlabs";
     public static final String WITAI = WitAiTtsProvider.ID;
+    public static final String CAPCUT = ExtendedCloudProviders.CAPCUT;
+    public static final String FISH = ExtendedCloudProviders.FISH;
+    public static final String GROQ = ExtendedCloudProviders.GROQ;
+    public static final String CARTESIA = ExtendedCloudProviders.CARTESIA;
+    public static final String GRADIUM = ExtendedCloudProviders.GRADIUM;
+    public static final String CLOUDFLARE = ExtendedCloudProviders.CLOUDFLARE;
     public static final String RIME_CODA = "coda";
     public static final String RIME_MIST = "mistv3";
     public static final String SPEECHIFY_35 = "simba-3.5";
@@ -46,6 +52,7 @@ public final class CloudTtsClients {
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_CLIENT;
         if (ELEVENLABS.equals(providerId)) return ELEVENLABS_CLIENT;
         if (WITAI.equals(providerId)) return WITAI_CLIENT;
+        if (ExtendedCloudProviders.isExtended(providerId)) return ExtendedCloudProviders.create(providerId);
         throw new IllegalArgumentException("Unknown cloud TTS provider: " + providerId);
     }
 
@@ -65,7 +72,7 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST;
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32;
         if (ELEVENLABS.equals(providerId)) return ELEVEN_FLASH;
-        if (WITAI.equals(providerId)) return "";
+        if (WITAI.equals(providerId) || ExtendedCloudProviders.isExtended(providerId)) return "";
         throw new IllegalArgumentException("Unknown cloud TTS provider: " + providerId);
     }
 
@@ -74,6 +81,12 @@ public final class CloudTtsClients {
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "Simba 3.2" : "Simba 3.5";
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? "Eleven v3" : "Flash v2.5";
         if (WITAI.equals(providerId)) return "Wit.ai";
+        if (CAPCUT.equals(providerId)) return "CapCut / TikTok";
+        if (FISH.equals(providerId)) return "OpenAudio S1";
+        if (GROQ.equals(providerId)) return "Orpheus V1";
+        if (CARTESIA.equals(providerId)) return "Sonic-3";
+        if (GRADIUM.equals(providerId)) return "Gradium Neural";
+        if (CLOUDFLARE.equals(providerId)) return "Aura-2";
         return modelId;
     }
 
@@ -81,7 +94,12 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? "$50/mo" : "1M/mo";
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "500K/mo" : "333K/mo";
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? "10K/mo" : "20K/mo";
-        if (WITAI.equals(providerId)) return "Unlimited/mo";
+        if (WITAI.equals(providerId) || CAPCUT.equals(providerId)) return "Unlimited/mo";
+        if (FISH.equals(providerId)) return "Free Tier";
+        if (GROQ.equals(providerId)) return "Daily Reset";
+        if (CARTESIA.equals(providerId)) return "20K/mo";
+        if (GRADIUM.equals(providerId)) return "45K/mo";
+        if (CLOUDFLARE.equals(providerId)) return "10K Neurons/day";
         return "";
     }
 
@@ -89,6 +107,12 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? "English, French, German, Spanish" : "10 languages • English, Hindi";
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "English only" : "48 languages • English, Hindi";
         if (WITAI.equals(providerId)) return "8 curated English voices";
+        if (CAPCUT.equals(providerId)) return "23 Creator & Character voices";
+        if (FISH.equals(providerId)) return "83 languages • English, Hindi";
+        if (GROQ.equals(providerId)) return "8 expressive English voices";
+        if (CARTESIA.equals(providerId)) return "42 languages • English, Hindi";
+        if (GRADIUM.equals(providerId)) return "Ultra-low latency multilingual";
+        if (CLOUDFLARE.equals(providerId)) return "12 Deepgram Aura-2 voices";
         return ELEVEN_V3.equals(modelId) ? "70+ languages" : "32 languages • English, Hindi";
     }
 
@@ -108,6 +132,11 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST.equals(modelId) ? 1660000 : 1000000;
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? 500000 : 333000;
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? 10000 : 20000;
+        if (CARTESIA.equals(providerId)) return 20000;
+        if (GRADIUM.equals(providerId)) return 45000;
+        if (CLOUDFLARE.equals(providerId)) return 10000;
+        if (FISH.equals(providerId)) return 50000;
+        if (GROQ.equals(providerId)) return 30000;
         return 0;
     }
 
