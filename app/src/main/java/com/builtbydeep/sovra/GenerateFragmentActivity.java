@@ -2168,7 +2168,6 @@ if (autoStart || (finalHead < (totalFrames - 5000) && finalHead > 0)) {
 		if (normalized.equals("cloud-witai")) return com.builtbydeep.sovra.CloudTtsClients.WITAI;
                 if (normalized.equals("cloud-capcut")) return com.builtbydeep.sovra.CloudTtsClients.CAPCUT;
                 if (normalized.equals("cloud-fish")) return com.builtbydeep.sovra.CloudTtsClients.FISH;
-                if (normalized.equals("cloud-groq")) return com.builtbydeep.sovra.CloudTtsClients.GROQ;
                 if (normalized.equals("cloud-cartesia")) return com.builtbydeep.sovra.CloudTtsClients.CARTESIA;
                 if (normalized.equals("cloud-gradium")) return com.builtbydeep.sovra.CloudTtsClients.GRADIUM;
                 if (normalized.equals("cloud-cloudflare")) return com.builtbydeep.sovra.CloudTtsClients.CLOUDFLARE;

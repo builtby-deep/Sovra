@@ -23,7 +23,6 @@ public final class CloudTtsClients {
     public static final String WITAI = WitAiTtsProvider.ID;
     public static final String CAPCUT = ExtendedCloudProviders.CAPCUT;
     public static final String FISH = ExtendedCloudProviders.FISH;
-    public static final String GROQ = ExtendedCloudProviders.GROQ;
     public static final String CARTESIA = ExtendedCloudProviders.CARTESIA;
     public static final String GRADIUM = ExtendedCloudProviders.GRADIUM;
     public static final String CLOUDFLARE = ExtendedCloudProviders.CLOUDFLARE;
@@ -86,7 +85,6 @@ public final class CloudTtsClients {
         if (WITAI.equals(providerId)) return "Wit.ai";
         if (CAPCUT.equals(providerId)) return "CapCut / TikTok";
         if (FISH.equals(providerId)) return FISH_FREE.equals(modelId) ? "S2.1 Pro Free" : "S2.1 Pro";
-        if (GROQ.equals(providerId)) return "Orpheus V1";
         if (CARTESIA.equals(providerId)) return "Sonic-3";
         if (GRADIUM.equals(providerId)) return "Gradium Neural";
         if (CLOUDFLARE.equals(providerId)) return "Aura-2";
@@ -99,7 +97,6 @@ public final class CloudTtsClients {
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? "10K/mo" : "20K/mo";
         if (WITAI.equals(providerId) || CAPCUT.equals(providerId)) return "Unlimited/mo";
         if (FISH.equals(providerId)) return FISH_FREE.equals(modelId) ? "Unlimited/mo" : "Paid credits";
-        if (GROQ.equals(providerId)) return "Daily Reset";
         if (CARTESIA.equals(providerId)) return "20K/mo";
         if (GRADIUM.equals(providerId)) return "45K/mo";
         if (CLOUDFLARE.equals(providerId)) return "10K Neurons/day";
@@ -112,7 +109,6 @@ public final class CloudTtsClients {
         if (WITAI.equals(providerId)) return "8 curated English voices";
         if (CAPCUT.equals(providerId)) return "26 Creator & Character voices";
         if (FISH.equals(providerId)) return "83 languages • English, Hindi";
-        if (GROQ.equals(providerId)) return "8 expressive English voices";
         if (CARTESIA.equals(providerId)) return "42 languages • English, Hindi";
         if (GRADIUM.equals(providerId)) return "Ultra-low latency multilingual";
         if (CLOUDFLARE.equals(providerId)) return "12 Deepgram Aura-2 voices";
@@ -139,7 +135,6 @@ public final class CloudTtsClients {
         if (GRADIUM.equals(providerId)) return 45000;
         if (CLOUDFLARE.equals(providerId)) return 10000;
         if (FISH.equals(providerId)) return 50000;
-        if (GROQ.equals(providerId)) return 30000;
         return 0;
     }
 

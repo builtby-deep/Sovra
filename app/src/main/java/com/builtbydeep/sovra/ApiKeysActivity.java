@@ -53,7 +53,7 @@ public final class ApiKeysActivity extends AppCompatActivity {
     private static final int[] PROVIDER_BADGES = {0xFF00E5FF, 0xFF8B9EFF, 0xFFFFB86B, 0xFF84E1BC, 0xFFF472B6, 0xFFFB923C, 0xFF38BDF8, 0xFFA78BFA, 0xFFFACC15};
     private static final String[] PROVIDERS = {CloudTtsClients.RIME, CloudTtsClients.SPEECHIFY,
             CloudTtsClients.ELEVENLABS, CloudTtsClients.WITAI,
-            CloudTtsClients.FISH, CloudTtsClients.GROQ,
+            CloudTtsClients.FISH,
             CloudTtsClients.CARTESIA, CloudTtsClients.GRADIUM, CloudTtsClients.CLOUDFLARE};
     private SharedPreferences preferences;
     private GridLayout providerGrid;
@@ -576,7 +576,6 @@ public final class ApiKeysActivity extends AppCompatActivity {
         if (CloudTtsClients.ELEVENLABS.equals(id)) return "ElevenLabs";
         if (CloudTtsClients.WITAI.equals(id)) return "Wit.ai";
         if (CloudTtsClients.FISH.equals(id)) return "Fish Audio";
-        if (CloudTtsClients.GROQ.equals(id)) return "Groq Orpheus";
         if (CloudTtsClients.CARTESIA.equals(id)) return "Cartesia";
         if (CloudTtsClients.GRADIUM.equals(id)) return "Gradium AI";
         if (CloudTtsClients.CLOUDFLARE.equals(id)) return "Cloudflare";
@@ -589,7 +588,6 @@ public final class ApiKeysActivity extends AppCompatActivity {
         if (CloudTtsClients.ELEVENLABS.equals(id)) return "E";
         if (CloudTtsClients.WITAI.equals(id)) return "W";
         if (CloudTtsClients.FISH.equals(id)) return "F";
-        if (CloudTtsClients.GROQ.equals(id)) return "G";
         if (CloudTtsClients.CARTESIA.equals(id)) return "C";
         if (CloudTtsClients.GRADIUM.equals(id)) return "A";
         if (CloudTtsClients.CLOUDFLARE.equals(id)) return "CF";

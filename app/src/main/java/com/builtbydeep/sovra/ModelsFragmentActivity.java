@@ -892,7 +892,6 @@ public class ModelsFragmentActivity extends Fragment {
                         com.builtbydeep.sovra.CloudTtsClients.CARTESIA,
                         com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY,
                         com.builtbydeep.sovra.CloudTtsClients.FISH,
-                        com.builtbydeep.sovra.CloudTtsClients.GROQ,
                         com.builtbydeep.sovra.CloudTtsClients.GRADIUM,
                         "edge_tts_slot",
                         com.builtbydeep.sovra.CloudTtsClients.RIME,
@@ -948,7 +947,6 @@ public class ModelsFragmentActivity extends Fragment {
 				: com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS.equals(providerId) ? "ElevenLabs"
 				: com.builtbydeep.sovra.CloudTtsClients.CAPCUT.equals(providerId) ? "CapCut / TikTok TTS"
 				: com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId) ? "Fish Audio"
-				: com.builtbydeep.sovra.CloudTtsClients.GROQ.equals(providerId) ? "Groq Orpheus"
 				: com.builtbydeep.sovra.CloudTtsClients.CARTESIA.equals(providerId) ? "Cartesia Sonic"
 				: com.builtbydeep.sovra.CloudTtsClients.GRADIUM.equals(providerId) ? "Gradium AI"
 				: com.builtbydeep.sovra.CloudTtsClients.CLOUDFLARE.equals(providerId) ? "Cloudflare Aura"
@@ -972,7 +970,6 @@ public class ModelsFragmentActivity extends Fragment {
 		if (normalized.equals("cloud-witai")) return com.builtbydeep.sovra.CloudTtsClients.WITAI;
                 if (normalized.equals("cloud-capcut")) return com.builtbydeep.sovra.CloudTtsClients.CAPCUT;
                 if (normalized.equals("cloud-fish")) return com.builtbydeep.sovra.CloudTtsClients.FISH;
-                if (normalized.equals("cloud-groq")) return com.builtbydeep.sovra.CloudTtsClients.GROQ;
                 if (normalized.equals("cloud-cartesia")) return com.builtbydeep.sovra.CloudTtsClients.CARTESIA;
                 if (normalized.equals("cloud-gradium")) return com.builtbydeep.sovra.CloudTtsClients.GRADIUM;
                 if (normalized.equals("cloud-cloudflare")) return com.builtbydeep.sovra.CloudTtsClients.CLOUDFLARE;

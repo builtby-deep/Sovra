@@ -20,7 +20,6 @@ import okhttp3.Response;
 public final class ExtendedCloudProviders {
     public static final String CAPCUT = "capcut";
     public static final String FISH = "fish";
-    public static final String GROQ = "groq";
     public static final String CARTESIA = "cartesia";
     public static final String GRADIUM = "gradium";
     public static final String CLOUDFLARE = "cloudflare";
@@ -35,7 +34,7 @@ public final class ExtendedCloudProviders {
     private ExtendedCloudProviders() {}
 
     public static boolean isExtended(String id) {
-        return CAPCUT.equals(id) || FISH.equals(id) || GROQ.equals(id)
+        return CAPCUT.equals(id) || FISH.equals(id)
                 || CARTESIA.equals(id) || GRADIUM.equals(id) || CLOUDFLARE.equals(id);
     }
 
@@ -46,7 +45,6 @@ public final class ExtendedCloudProviders {
     public static CloudTtsProvider create(String id) {
         if (CAPCUT.equals(id)) return new CapCutClient();
         if (FISH.equals(id)) return new FishClient();
-        if (GROQ.equals(id)) return new GroqClient();
         if (CARTESIA.equals(id)) return new CartesiaClient();
         if (GRADIUM.equals(id)) return new GradiumClient();
         if (CLOUDFLARE.equals(id)) return new CloudflareClient();
@@ -219,24 +217,6 @@ public final class ExtendedCloudProviders {
         }
     }
 
-    // 3. Groq Orpheus (Canopy Labs Orpheus V1 English)
-    static final class GroqClient implements CloudTtsProvider {
-        @Override public String getId() { return GROQ; }
-        @Override public int getSafeChunkLimit() { return 1000; }
-
-        @Override
-        public List<Voice> fetchVoices(String apiKey) {
-            return Arrays.asList(
-                    new Voice("tara", "Tara (Natural Female)", "en-US", "", "English (US)"),
-                    new Voice("leah", "Leah (Warm Female)", "en-US", "", "English (US)"),
-                    new Voice("jess", "Jess (Expressive Female)", "en-US", "", "English (US)"),
-                    new Voice("mia", "Mia (Clear Female)", "en-US", "", "English (US)"),
-                    new Voice("zoe", "Zoe (Bright Female)", "en-US", "", "English (US)"),
-                    new Voice("leo", "Leo (Deep Male)", "en-US", "", "English (US)"),
-                    new Voice("dan", "Dan (Casual Male)", "en-US", "", "English (US)"),
-                    new Voice("zac", "Zac (Energetic Male)", "en-US", "", "English (US)")
-            );
-        }
 
         @Override
         public byte[] synthesize(String apiKey, String modelId, Voice voice, String text,
@@ -250,16 +230,13 @@ public final class ExtendedCloudProviders {
                 body.put("voice", speaker);
                 body.put("response_format", "wav");
                 Request req = new Request.Builder()
-                        .url("https://api.groq.com/openai/v1/audio/speech")
                         .header("Authorization", "Bearer " + apiKey)
                         .post(RequestBody.create(body.toString(), JSON))
                         .build();
                 try (Response res = HTTP.newCall(req).execute()) {
-                    if (!res.isSuccessful() || res.body() == null) throw new IOException("Groq Orpheus HTTP " + res.code());
                     return res.body().bytes();
                 }
             } catch (org.json.JSONException e) {
-                throw new IOException("Groq request failed.", e);
             }
         }
     }
