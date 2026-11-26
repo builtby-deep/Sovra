@@ -979,23 +979,44 @@ public class ModelsFragmentActivity extends Fragment {
 		return "";
 	}
 
-	private void showCloudModelDialog(String providerId) {
-		String[] modelIds;
-		if (com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId)) {
-			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.RIME_CODA,
-					com.builtbydeep.sovra.CloudTtsClients.RIME_MIST};
-		} else if (com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId)) {
-			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_35,
-					com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_32};
-		} else if (com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)) {
-			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.FISH_FREE,
-					com.builtbydeep.sovra.CloudTtsClients.FISH_PRO};
-		} else if (com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(providerId)) {
-			new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
-					.setTitle("Wit.ai")
-					.setMessage("8 curated English voices • Unlimited monthly usage • 250 characters per request.")
-					.setPositiveButton("OK", null)
-					.show();
+	        private static boolean hasMultipleCloudModels(String providerId) {
+                return com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS.equals(providerId)
+                                || com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId)
+                                || com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)
+                                || com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId);
+        }
+
+        private void showCloudModelDialog(String providerId) {
+                if (!hasMultipleCloudModels(providerId)) return;
+                String[] modelIds;
+                if (com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId)) {
+                        modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.RIME_MIST,
+                                        com.builtbydeep.sovra.CloudTtsClients.RIME_ARCANA};
+                } else if (com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId)) {
+                        modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_35,
+                                        com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_32};
+                } else if (com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)) {
+                        modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.FISH_FREE,
+                                        com.builtbydeep.sovra.CloudTtsClients.FISH_PRO};
+                } else {
+                        modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.ELEVEN_FLASH,
+                                        com.builtbydeep.sovra.CloudTtsClients.ELEVEN_MULTI};
+                }
+                String titleName = com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId) ? "Rime AI"
+                                : com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId) ? "Speechify"
+                                : com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId) ? "Fish Audio"
+                                : "ElevenLabs";
+                String currentModel = com.builtbydeep.sovra.CloudTtsClients.getSelectedModel(sp1, providerId);
+                String[] labels = new String[modelIds.length];
+                int checked = 0;
+                for (int i = 0; i < modelIds.length; i++) {
+                        labels[i] = com.builtbydeep.sovra.CloudTtsClients.modelLabel(providerId, modelIds[i])
+                                        + " • " + com.builtbydeep.sovra.CloudTtsClients.languageLabel(providerId, modelIds[i])
+                                        + " • " + com.builtbydeep.sovra.CloudTtsClients.quotaLabel(providerId, modelIds[i]);
+                        if (modelIds[i].equals(currentModel)) checked = i;
+                }
+                new AlertDialog.Builder(this)
+                                .setTitle("Choose " + titleName + " model");
 			return;
 		} else {
 			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.ELEVEN_FLASH,
