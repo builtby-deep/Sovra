@@ -50,6 +50,28 @@ public class CloudTtsClientsTest {
                 Arrays.asList(english, hindi)));
     }
 
+    @Test
+    public void creditSavingModelsRemainDefaultAndFishLabelsMatchSelectedTier() {
+        assertEquals(CloudTtsClients.ELEVEN_FLASH,
+                CloudTtsClients.defaultModel(CloudTtsClients.ELEVENLABS));
+        assertEquals(CloudTtsClients.SPEECHIFY_32,
+                CloudTtsClients.defaultModel(CloudTtsClients.SPEECHIFY));
+        assertEquals(CloudTtsClients.RIME_MIST,
+                CloudTtsClients.defaultModel(CloudTtsClients.RIME));
+        assertEquals(CloudTtsClients.FISH_FREE,
+                CloudTtsClients.defaultModel(CloudTtsClients.FISH));
+        assertEquals("S2.1 Pro Free",
+                CloudTtsClients.modelLabel(CloudTtsClients.FISH, CloudTtsClients.FISH_FREE));
+        assertEquals("Unlimited/mo",
+                CloudTtsClients.quotaLabel(CloudTtsClients.FISH, CloudTtsClients.FISH_FREE));
+        assertEquals("S2.1 Pro",
+                CloudTtsClients.modelLabel(CloudTtsClients.FISH, CloudTtsClients.FISH_PRO));
+        assertEquals("Paid credits",
+                CloudTtsClients.quotaLabel(CloudTtsClients.FISH, CloudTtsClients.FISH_PRO));
+        assertEquals("83 languages • English, Hindi",
+                CloudTtsClients.languageLabel(CloudTtsClients.FISH, CloudTtsClients.FISH_FREE));
+    }
+
     private static String repeat(char value, int count) {
         char[] chars = new char[count];
         Arrays.fill(chars, value);

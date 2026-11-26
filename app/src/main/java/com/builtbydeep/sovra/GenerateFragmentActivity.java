@@ -257,7 +257,8 @@ public class GenerateFragmentActivity extends Fragment {
 					}
 					return;
 				}
-				if (isCloudTts && sp1.getString(
+				if (isCloudTts && !com.builtbydeep.sovra.ExtendedCloudProviders
+						.isKeyless(cloudProviderId) && sp1.getString(
 						com.builtbydeep.sovra.CloudTtsClients.getApiKeyPreference(cloudProviderId), "")
 						.trim().isEmpty()) {
 					new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())

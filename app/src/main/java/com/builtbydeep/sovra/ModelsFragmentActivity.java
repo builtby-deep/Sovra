@@ -912,6 +912,11 @@ public class ModelsFragmentActivity extends Fragment {
                         String cloudUrl = String.valueOf(cloudEntry.get("model_url"));
                         builtInUrls.add(cloudUrl);
                         HashMap<String, Object> existingCloud = _findModelByUrl(existingModels, cloudUrl);
+                        if (existingCloud != null) {
+                                for (String key : new String[]{"name", "gender", "language"}) {
+                                        existingCloud.put(key, cloudEntry.get(key));
+                                }
+                        }
                         orderedModels.add(existingCloud == null ? cloudEntry : existingCloud);
                 }
 		for (int i = 1; i < 3; i++) {
@@ -941,6 +946,12 @@ public class ModelsFragmentActivity extends Fragment {
 		String name = com.builtbydeep.sovra.CloudTtsClients.RIME.equals(providerId) ? "Rime AI"
 				: com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId) ? "SpeechifyAI"
 				: com.builtbydeep.sovra.CloudTtsClients.ELEVENLABS.equals(providerId) ? "ElevenLabs"
+				: com.builtbydeep.sovra.CloudTtsClients.CAPCUT.equals(providerId) ? "CapCut / TikTok TTS"
+				: com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId) ? "Fish Audio"
+				: com.builtbydeep.sovra.CloudTtsClients.GROQ.equals(providerId) ? "Groq Orpheus"
+				: com.builtbydeep.sovra.CloudTtsClients.CARTESIA.equals(providerId) ? "Cartesia Sonic"
+				: com.builtbydeep.sovra.CloudTtsClients.GRADIUM.equals(providerId) ? "Gradium AI"
+				: com.builtbydeep.sovra.CloudTtsClients.CLOUDFLARE.equals(providerId) ? "Cloudflare Aura"
 				: "Wit.ai";
 		entry.put("name", name);
 		entry.put("type", "cloud-" + providerId);
@@ -976,6 +987,9 @@ public class ModelsFragmentActivity extends Fragment {
 		} else if (com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY.equals(providerId)) {
 			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_35,
 					com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY_32};
+		} else if (com.builtbydeep.sovra.CloudTtsClients.FISH.equals(providerId)) {
+			modelIds = new String[]{com.builtbydeep.sovra.CloudTtsClients.FISH_FREE,
+					com.builtbydeep.sovra.CloudTtsClients.FISH_PRO};
 		} else if (com.builtbydeep.sovra.CloudTtsClients.WITAI.equals(providerId)) {
 			new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
 					.setTitle("Wit.ai")
@@ -999,7 +1013,8 @@ public class ModelsFragmentActivity extends Fragment {
 		new com.google.android.material.dialog.MaterialAlertDialogBuilder(requireContext())
 				.setTitle("Choose " + (providerId.equals(com.builtbydeep.sovra.CloudTtsClients.RIME)
 						? "Rime" : providerId.equals(com.builtbydeep.sovra.CloudTtsClients.SPEECHIFY)
-						? "Speechify" : "ElevenLabs") + " model")
+						? "Speechify" : providerId.equals(com.builtbydeep.sovra.CloudTtsClients.FISH)
+						? "Fish Audio" : "ElevenLabs") + " model")
 				.setSingleChoiceItems(labels, current, (dialog, which) -> {
 					sp1.edit().putString(pref, modelIds[which]).apply();
 					if (binding.recyclerviewModels.getAdapter() != null)

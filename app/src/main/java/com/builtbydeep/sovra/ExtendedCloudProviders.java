@@ -184,7 +184,8 @@ public final class ExtendedCloudProviders {
                 if (voice != null && voice.id != null && !voice.id.isEmpty()) {
                     body.put("reference_id", voice.id);
                 }
-                String model = (modelId == null || modelId.isEmpty()) ? "s1" : modelId;
+                String model = (modelId == null || modelId.isEmpty())
+                        ? CloudTtsClients.FISH_FREE : modelId;
                 Request req = new Request.Builder()
                         .url("https://api.fish.audio/v1/tts")
                         .header("Authorization", "Bearer " + apiKey)

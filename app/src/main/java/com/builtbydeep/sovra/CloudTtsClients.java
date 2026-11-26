@@ -33,6 +33,8 @@ public final class CloudTtsClients {
     public static final String SPEECHIFY_32 = "simba-3.2";
     public static final String ELEVEN_FLASH = "eleven_flash_v2_5";
     public static final String ELEVEN_V3 = "eleven_v3";
+    public static final String FISH_FREE = "s2.1-pro-free";
+    public static final String FISH_PRO = "s2.1-pro";
 
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final OkHttpClient HTTP = new OkHttpClient.Builder()
@@ -72,6 +74,7 @@ public final class CloudTtsClients {
         if (RIME.equals(providerId)) return RIME_MIST;
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32;
         if (ELEVENLABS.equals(providerId)) return ELEVEN_FLASH;
+        if (FISH.equals(providerId)) return FISH_FREE;
         if (WITAI.equals(providerId) || ExtendedCloudProviders.isExtended(providerId)) return "";
         throw new IllegalArgumentException("Unknown cloud TTS provider: " + providerId);
     }
@@ -82,7 +85,7 @@ public final class CloudTtsClients {
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? "Eleven v3" : "Flash v2.5";
         if (WITAI.equals(providerId)) return "Wit.ai";
         if (CAPCUT.equals(providerId)) return "CapCut / TikTok";
-        if (FISH.equals(providerId)) return "OpenAudio S1";
+        if (FISH.equals(providerId)) return FISH_FREE.equals(modelId) ? "S2.1 Pro Free" : "S2.1 Pro";
         if (GROQ.equals(providerId)) return "Orpheus V1";
         if (CARTESIA.equals(providerId)) return "Sonic-3";
         if (GRADIUM.equals(providerId)) return "Gradium Neural";
@@ -95,7 +98,7 @@ public final class CloudTtsClients {
         if (SPEECHIFY.equals(providerId)) return SPEECHIFY_32.equals(modelId) ? "500K/mo" : "333K/mo";
         if (ELEVENLABS.equals(providerId)) return ELEVEN_V3.equals(modelId) ? "10K/mo" : "20K/mo";
         if (WITAI.equals(providerId) || CAPCUT.equals(providerId)) return "Unlimited/mo";
-        if (FISH.equals(providerId)) return "Free Tier";
+        if (FISH.equals(providerId)) return FISH_FREE.equals(modelId) ? "Unlimited/mo" : "Paid credits";
         if (GROQ.equals(providerId)) return "Daily Reset";
         if (CARTESIA.equals(providerId)) return "20K/mo";
         if (GRADIUM.equals(providerId)) return "45K/mo";
