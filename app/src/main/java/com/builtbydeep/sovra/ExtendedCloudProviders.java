@@ -239,7 +239,6 @@ public final class ExtendedCloudProviders {
             } catch (org.json.JSONException e) {
             }
         }
-    }
 
     // 4. Cartesia Sonic-3 (Ultra-Low Latency Multilingual + Hindi)
     static final class CartesiaClient implements CloudTtsProvider {
