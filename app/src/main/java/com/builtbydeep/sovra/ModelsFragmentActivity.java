@@ -316,6 +316,34 @@ public class ModelsFragmentActivity extends Fragment {
 				boolean isSupertonic = com.builtbydeep.sovra.SupertonicModelFiles.isSupertonicModel(item);
 				boolean isPiperArchive = com.builtbydeep.sovra.PiperModelCatalog.isCatalogModel(item);
 				boolean isCloud = "cloud".equalsIgnoreCase(String.valueOf(item.get("type")));
+                                if (v instanceof android.view.ViewGroup) {
+                                        java.util.ArrayDeque<android.view.View> q = new java.util.ArrayDeque<>();
+                                        q.add(v);
+                                        while (!q.isEmpty()) {
+                                                android.view.View cur = q.poll();
+                                                if (cur instanceof android.widget.TextView) {
+                                                        android.widget.TextView tv = (android.widget.TextView) cur;
+                                                        String bt = tv.getText() == null ? "" : tv.getText().toString().trim();
+                                                        if (isCloud && ("ONNX".equalsIgnoreCase(bt) || "CLOUD".equalsIgnoreCase(bt))) {
+                                                                tv.setText("CLOUD");
+                                                                tv.setTextColor(android.graphics.Color.parseColor("#00E5FF"));
+                                                        } else if (isCloud && ("Token".equalsIgnoreCase(bt) || "API".equalsIgnoreCase(bt) || "ONLINE".equalsIgnoreCase(bt))) {
+                                                                String cpId = String.valueOf(item.get("cloud_provider"));
+                                                                tv.setText(("capcut_tts".equals(cpId) || "edge_tts".equals(cpId)) ? "ONLINE" : "API");
+                                                                tv.setTextColor(android.graphics.Color.parseColor("#4ADE80"));
+                                                        } else if (!isCloud && "CLOUD".equalsIgnoreCase(bt)) {
+                                                                tv.setText("ONNX");
+                                                                tv.setTextColor(android.graphics.Color.parseColor("#94A3B8"));
+                                                        } else if (!isCloud && ("API".equalsIgnoreCase(bt) || "ONLINE".equalsIgnoreCase(bt))) {
+                                                                tv.setText("Token");
+                                                                tv.setTextColor(android.graphics.Color.parseColor("#4ADE80"));
+                                                        }
+                                                } else if (cur instanceof android.view.ViewGroup) {
+                                                        android.view.ViewGroup vg = (android.view.ViewGroup) cur;
+                                                        for (int ci = 0; ci < vg.getChildCount(); ci++) q.add(vg.getChildAt(ci));
+                                                }
+                                        }
+                                }
 				
 				String modelName = "Unknown Model";
 				if (item.containsKey("name") && item.get("name") != null && !item.get("name").toString().trim().isEmpty()) modelName = item.get("name").toString();
@@ -446,15 +474,8 @@ public class ModelsFragmentActivity extends Fragment {
 						CloudTtsProvider provider = CloudTtsRegistry.get(providerId);
 						if (provider == null) return;
 						if (provider.requiresApiKey()) {
-							SharedPreferences keys = context.getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
-							boolean missing = false;
-							if ("fish_audio".equals(providerId)) missing = keys.getString("fish_api_key", "").trim().isEmpty();
-							else if ("groq_orpheus".equals(providerId)) missing = keys.getString("groq_api_key", "").trim().isEmpty();
-							else if ("cartesia_sonic".equals(providerId)) missing = keys.getString("cartesia_api_key", "").trim().isEmpty();
-							else if ("gradium_ai".equals(providerId)) missing = keys.getString("gradium_api_key", "").trim().isEmpty();
-							else if ("cloudflare_aura".equals(providerId)) missing = keys.getString("cloudflare_account_id", "").trim().isEmpty()
-									|| keys.getString("cloudflare_api_token", "").trim().isEmpty();
-							if (missing) {
+							boolean missing = com.builtbydeep.sovra.cloud.CloudApiKeyManager.isKeyMissing(context, providerId);
+                                                       if (missing) {
 								com.builtbydeep.sovra.cloud.CloudApiKeyManager.show(context);
 								return;
 							}
@@ -761,8 +782,17 @@ public class ModelsFragmentActivity extends Fragment {
 					break;
 				}
 			}
-			if (!found) modelList.add(cloudEntry);
+			if (!found) modelList.add(0, cloudEntry);
 		}
+		ArrayList<HashMap<String, Object>> sortedCloud = new ArrayList<>();
+		ArrayList<HashMap<String, Object>> sortedLocal = new ArrayList<>();
+		for (HashMap<String, Object> entry : modelList) {
+			if ("cloud".equalsIgnoreCase(String.valueOf(entry.get("type")))) sortedCloud.add(entry);
+			else sortedLocal.add(entry);
+		}
+		modelList.clear();
+		modelList.addAll(sortedCloud);
+		modelList.addAll(sortedLocal);
 		boolean hasSupertonicCard = false; boolean modelsDataChanged = false; java.io.File kokoroModelDir = com.builtbydeep.sovra.KokoroModelFiles.getModelDirectory(getContext());
 		String expectedKokoroOnnx = new java.io.File(kokoroModelDir, com.builtbydeep.sovra.KokoroModelFiles.MODEL_FILE_NAME).getAbsolutePath(); String activeKokoroOnnx = sp1.getString("active_model", ""); boolean hadActiveKokoro = "kokoro".equalsIgnoreCase(sp1.getString("active_model_type", ""));
 		for (int i = modelList.size() - 1; i >= 0; i--) {

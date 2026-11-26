@@ -193,7 +193,7 @@ public final class MultiChunkAudioEngine {
         if (wakeLock != null) wakeLock.acquire();
         try {
             boolean groq = "groq_orpheus".equals(provider.getId());
-            boolean capcut = "capcut_tts".equals(provider.getId());
+            boolean capcut = "capcut_tts".equals(provider.getId()) || "wit_ai".equals(provider.getId());
             String sanitized = sanitizeText(text, groq);
             List<String> chunks = splitUtf8Safe(sanitized, groq ? 180 : (capcut ? 220 : 1500), capcut);
             List<byte[]> responses = new ArrayList<>();
@@ -215,7 +215,7 @@ public final class MultiChunkAudioEngine {
             }
             boolean mp3 = provider instanceof FishAudioProvider
                     || provider instanceof CartesiaSonicProvider
-                    || provider instanceof CloudflareAuraProvider;
+                    || provider instanceof CloudflareAuraProvider || provider instanceof CapCutTtsProvider || provider instanceof EdgeTtsProvider || provider instanceof ElevenLabsProvider || provider instanceof SpeechifyAiProvider || provider instanceof RimeAiProvider || provider instanceof WitAiProvider;
             byte[] finalAudio = mp3 ? stitchMp3(responses) : stitchWav(responses);
             long characters = text.length();
             long bytes = finalAudio.length;

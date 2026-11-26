@@ -170,35 +170,76 @@ public class SettingFragmentActivity extends Fragment {
 	}
 	
 	private void initializeLogic() {
-		// Cloud TTS key management is isolated from local model settings.
+		// Cloud TTS 2-column API key grid at the TOP of Settings
 		if (binding.linear29 != null) {
+			float d = getResources().getDisplayMetrics().density;
+			int p12 = (int) (12 * d);
+			int p6 = (int) (6 * d);
 			LinearLayout cloudSection = new LinearLayout(getContext());
 			cloudSection.setOrientation(LinearLayout.VERTICAL);
-			cloudSection.setPadding(0, 24, 0, 0);
+			cloudSection.setPadding(0, 0, 0, (int) (16 * d));
+
 			TextView heading = new TextView(getContext());
-			heading.setText("CLOUD TTS");
+			heading.setText("CLOUD TTS API KEYS (11 PROVIDERS)");
 			heading.setTextSize(12);
 			heading.setTypeface(null, Typeface.BOLD);
 			heading.setTextColor(Color.parseColor("#00E5FF"));
+			heading.setPadding(0, 0, 0, p6);
 			cloudSection.addView(heading);
-			com.google.android.material.card.MaterialCardView card =
-					new com.google.android.material.card.MaterialCardView(getContext());
-			card.setCardBackgroundColor(Color.parseColor("#1A1D2E"));
-			card.setRadius(32);
-			card.setStrokeColor(Color.parseColor("#2A2F45"));
-			card.setStrokeWidth(2);
-			LinearLayout row = new LinearLayout(getContext());
-			row.setOrientation(LinearLayout.HORIZONTAL);
-			row.setPadding(32, 32, 32, 32);
-			TextView title = new TextView(getContext());
-			title.setText("API Keys & Cloud Settings");
-			title.setTextColor(Color.WHITE);
-			title.setTextSize(16);
-			row.addView(title);
-			card.addView(row);
-			card.setOnClickListener(v -> com.builtbydeep.sovra.cloud.CloudApiKeyManager.show(getContext()));
-			cloudSection.addView(card);
-			binding.linear29.addView(cloudSection);
+
+			SharedPreferences ck = getContext().getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
+			String[][] providers = new String[][]{
+				{"CapCut / TikTok", !ck.getString("capcut_wrapper_url", "").trim().isEmpty() ? "Custom URL ✓" : "Keyless Active ✓"},
+				{"Microsoft Edge", "Keyless Active ✓"},
+				{"Fish Audio", !ck.getString("fish_api_key", "").trim().isEmpty() ? "Key Saved ✓" : "Tap to add key"},
+				{"Groq Orpheus", !ck.getString("groq_api_key", "").trim().isEmpty() ? "Key Saved ✓" : "Tap to add key"},
+				{"Cartesia Sonic", !ck.getString("cartesia_api_key", "").trim().isEmpty() ? "Key Saved ✓" : "Tap to add key"},
+				{"Gradium AI", !ck.getString("gradium_api_key", "").trim().isEmpty() ? "Key Saved ✓" : "Tap to add key"},
+				{"Cloudflare Aura", (!ck.getString("cloudflare_account_id", "").trim().isEmpty() && !ck.getString("cloudflare_api_token", "").trim().isEmpty()) ? "ID + Token ✓" : "Tap to add ID & Token"},
+				{"ElevenLabs", !ck.getString("elevenlabs_api_key", "").trim().isEmpty() ? "Key Saved ✓" : "Tap to add key"},
+				{"SpeechifyAI", !ck.getString("speechify_api_key", "").trim().isEmpty() ? "Key Saved ✓" : "Tap to add key"},
+				{"Rime AI", !ck.getString("rime_api_key", "").trim().isEmpty() ? "Key Saved ✓" : "Tap to add key"},
+				{"Wit.ai", !ck.getString("wit_api_key", "").trim().isEmpty() ? "Token Saved ✓" : "Tap to add token"},
+				{"Manage All Keys", "Edit / Paste Keys →"}
+			};
+
+			for (int i = 0; i < providers.length; i += 2) {
+				LinearLayout row = new LinearLayout(getContext());
+				row.setOrientation(LinearLayout.HORIZONTAL);
+				row.setWeightSum(2f);
+				for (int j = 0; j < 2 && (i + j) < providers.length; j++) {
+					String pTitle = providers[i + j][0];
+					String pSub = providers[i + j][1];
+					com.google.android.material.card.MaterialCardView card = new com.google.android.material.card.MaterialCardView(getContext());
+					LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+					lp.setMargins(j == 0 ? 0 : p6, p6, j == 0 ? p6 : 0, p6);
+					card.setLayoutParams(lp);
+					card.setCardBackgroundColor(Color.parseColor("#1A1D2E"));
+					card.setRadius((int) (14 * d));
+					card.setStrokeColor(Color.parseColor(pSub.contains("✓") ? "#00E5FF" : "#2A2F45"));
+					card.setStrokeWidth((int) (1.5f * d));
+
+					LinearLayout box = new LinearLayout(getContext());
+					box.setOrientation(LinearLayout.VERTICAL);
+					box.setPadding(p12, p12, p12, p12);
+					TextView t1 = new TextView(getContext());
+					t1.setText(pTitle);
+					t1.setTextColor(Color.WHITE);
+					t1.setTextSize(13);
+					t1.setTypeface(null, Typeface.BOLD);
+					TextView t2 = new TextView(getContext());
+					t2.setText(pSub);
+					t2.setTextColor(Color.parseColor(pSub.contains("✓") ? "#4ADE80" : "#94A3B8"));
+					t2.setTextSize(11);
+					box.addView(t1);
+					box.addView(t2);
+					card.addView(box);
+					card.setOnClickListener(v -> com.builtbydeep.sovra.cloud.CloudApiKeyManager.show(getContext()));
+					row.addView(card);
+				}
+				cloudSection.addView(row);
+			}
+			binding.linear29.addView(cloudSection, 0);
 		}
 		// 1. App Version Setup (Dynamic fetch)
 		try {

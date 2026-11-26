@@ -2,16 +2,33 @@ package com.builtbydeep.sovra.cloud;
 
 import android.app.AlertDialog;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.text.InputType;
 import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import org.json.JSONObject;
 
 public final class CloudApiKeyManager {
+    public static boolean isKeyMissing(Context context, String providerId) {
+        SharedPreferences keys = context.getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
+        if ("fish_audio".equals(providerId)) return keys.getString("fish_api_key", "").trim().isEmpty();
+        if ("groq_orpheus".equals(providerId)) return keys.getString("groq_api_key", "").trim().isEmpty();
+        if ("cartesia_sonic".equals(providerId)) return keys.getString("cartesia_api_key", "").trim().isEmpty();
+        if ("gradium_ai".equals(providerId)) return keys.getString("gradium_api_key", "").trim().isEmpty();
+        if ("cloudflare_aura".equals(providerId)) {
+            return keys.getString("cloudflare_account_id", "").trim().isEmpty()
+                    || keys.getString("cloudflare_api_token", "").trim().isEmpty();
+        }
+        if ("elevenlabs".equals(providerId)) return keys.getString("elevenlabs_api_key", "").trim().isEmpty();
+        if ("speechify_ai".equals(providerId)) return keys.getString("speechify_api_key", "").trim().isEmpty();
+        if ("rime_ai".equals(providerId)) return keys.getString("rime_api_key", "").trim().isEmpty();
+        if ("wit_ai".equals(providerId)) return keys.getString("wit_api_key", "").trim().isEmpty();
+        return false;
+    }
+
     public static void show(Context context) {
         LinearLayout form = new LinearLayout(context);
         form.setOrientation(LinearLayout.VERTICAL);
@@ -24,6 +41,10 @@ public final class CloudApiKeyManager {
         EditText gradium = addField(form, context, "Gradium AI API Key", "gradium_api_key", false);
         EditText cfAccount = addField(form, context, "Cloudflare Account ID", "cloudflare_account_id", false);
         EditText cfToken = addField(form, context, "Cloudflare API Token", "cloudflare_api_token", false);
+        EditText eleven = addField(form, context, "ElevenLabs API Key", "elevenlabs_api_key", false);
+        EditText speechify = addField(form, context, "SpeechifyAI API Key", "speechify_api_key", false);
+        EditText rime = addField(form, context, "Rime AI API Key", "rime_api_key", false);
+        EditText wit = addField(form, context, "Wit.ai Server Token", "wit_api_key", false);
         EditText capCutWrapper = addField(form, context, "CapCut Wrapper URL (optional)", "capcut_wrapper_url", false);
 
         ScrollView scroll = new ScrollView(context);
@@ -40,6 +61,10 @@ public final class CloudApiKeyManager {
                             .putString("gradium_api_key", gradium.getText().toString().trim())
                             .putString("cloudflare_account_id", cfAccount.getText().toString().trim())
                             .putString("cloudflare_api_token", cfToken.getText().toString().trim())
+                            .putString("elevenlabs_api_key", eleven.getText().toString().trim())
+                            .putString("speechify_api_key", speechify.getText().toString().trim())
+                            .putString("rime_api_key", rime.getText().toString().trim())
+                            .putString("wit_api_key", wit.getText().toString().trim())
                             .putString("capcut_wrapper_url", capCutWrapper.getText().toString().trim())
                             .apply();
                     Toast.makeText(context, "Cloud TTS settings saved", Toast.LENGTH_SHORT).show();
@@ -47,8 +72,7 @@ public final class CloudApiKeyManager {
                 .show();
     }
 
-    private static EditText addField(LinearLayout form, Context context, String label,
-                                     String prefKey, boolean numeric) {
+    private static EditText addField(LinearLayout form, Context context, String label, String prefKey, boolean numeric) {
         TextView title = new TextView(context);
         title.setText(label);
         title.setTextColor(0xFFFFFFFF);
@@ -66,13 +90,14 @@ public final class CloudApiKeyManager {
 
     public static String exportJson(Context context) throws Exception {
         JSONObject root = new JSONObject();
-        android.content.SharedPreferences keys = context.getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
+        SharedPreferences keys = context.getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
         String[] keyNames = {
                 "fish_api_key", "groq_api_key", "cartesia_api_key", "gradium_api_key",
-                "cloudflare_account_id", "cloudflare_api_token", "capcut_wrapper_url"
+                "cloudflare_account_id", "cloudflare_api_token", "elevenlabs_api_key",
+                "speechify_api_key", "rime_api_key", "wit_api_key", "capcut_wrapper_url"
         };
         for (String key : keyNames) root.put(key, keys.getString(key, ""));
-        android.content.SharedPreferences usage = context.getSharedPreferences("spCloudUsage", Context.MODE_PRIVATE);
+        SharedPreferences usage = context.getSharedPreferences("spCloudUsage", Context.MODE_PRIVATE);
         JSONObject usageJson = new JSONObject();
         for (CloudTtsProvider provider : CloudTtsRegistry.getProviders().values()) {
             JSONObject item = new JSONObject();
@@ -86,17 +111,18 @@ public final class CloudApiKeyManager {
 
     public static void importJson(Context context, String json) throws Exception {
         JSONObject root = new JSONObject(json);
-        android.content.SharedPreferences.Editor keys =
-                context.getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE).edit();
-        for (String key : new String[]{"fish_api_key", "groq_api_key", "cartesia_api_key",
-                "gradium_api_key", "cloudflare_account_id", "cloudflare_api_token", "capcut_wrapper_url"}) {
+        SharedPreferences.Editor keys = context.getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE).edit();
+        for (String key : new String[]{
+                "fish_api_key", "groq_api_key", "cartesia_api_key", "gradium_api_key",
+                "cloudflare_account_id", "cloudflare_api_token", "elevenlabs_api_key",
+                "speechify_api_key", "rime_api_key", "wit_api_key", "capcut_wrapper_url"
+        }) {
             if (root.has(key)) keys.putString(key, root.optString(key));
         }
         keys.apply();
         if (root.has("cloud_usage")) {
             JSONObject usage = root.getJSONObject("cloud_usage");
-            android.content.SharedPreferences.Editor usageEditor =
-                    context.getSharedPreferences("spCloudUsage", Context.MODE_PRIVATE).edit();
+            SharedPreferences.Editor usageEditor = context.getSharedPreferences("spCloudUsage", Context.MODE_PRIVATE).edit();
             java.util.Iterator<String> ids = usage.keys();
             while (ids.hasNext()) {
                 String id = ids.next();

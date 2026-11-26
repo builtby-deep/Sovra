@@ -114,15 +114,8 @@ public class GenerateFragmentActivity extends Fragment {
 		}
 		if (provider.requiresApiKey()) {
 			SharedPreferences keys = sp1;
-			SharedPreferences cloudKeys = getContext().getSharedPreferences("spCloudKeys", Context.MODE_PRIVATE);
-			boolean missing = false;
-			if ("fish_audio".equals(providerId)) missing = cloudKeys.getString("fish_api_key", "").trim().isEmpty();
-			else if ("groq_orpheus".equals(providerId)) missing = cloudKeys.getString("groq_api_key", "").trim().isEmpty();
-			else if ("cartesia_sonic".equals(providerId)) missing = cloudKeys.getString("cartesia_api_key", "").trim().isEmpty();
-			else if ("gradium_ai".equals(providerId)) missing = cloudKeys.getString("gradium_api_key", "").trim().isEmpty();
-			else if ("cloudflare_aura".equals(providerId)) missing = cloudKeys.getString("cloudflare_account_id", "").trim().isEmpty()
-					|| cloudKeys.getString("cloudflare_api_token", "").trim().isEmpty();
-			if (missing) {
+			boolean missing = com.builtbydeep.sovra.cloud.CloudApiKeyManager.isKeyMissing(getContext(), providerId);
+                if (missing) {
 				com.builtbydeep.sovra.cloud.CloudApiKeyManager.show(getContext());
 				return;
 			}
@@ -144,7 +137,7 @@ public class GenerateFragmentActivity extends Fragment {
 								binding.textview69.setText("Generating chunk " + chunk + " / " + total + "...")));
 				boolean mp3 = provider instanceof com.builtbydeep.sovra.cloud.FishAudioProvider
 						|| provider instanceof com.builtbydeep.sovra.cloud.CartesiaSonicProvider
-						|| provider instanceof com.builtbydeep.sovra.cloud.CloudflareAuraProvider;
+						|| provider instanceof com.builtbydeep.sovra.cloud.CloudflareAuraProvider || provider instanceof com.builtbydeep.sovra.cloud.CapCutTtsProvider || provider instanceof com.builtbydeep.sovra.cloud.EdgeTtsProvider || provider instanceof com.builtbydeep.sovra.cloud.ElevenLabsProvider || provider instanceof com.builtbydeep.sovra.cloud.SpeechifyAiProvider || provider instanceof com.builtbydeep.sovra.cloud.RimeAiProvider || provider instanceof com.builtbydeep.sovra.cloud.WitAiProvider;
 				File output = new File(requireContext().getCacheDir(),
 						"sovra_cloud_output." + (mp3 ? "mp3" : "wav"));
 				try (FileOutputStream out = new FileOutputStream(output)) {
@@ -931,7 +924,7 @@ public class GenerateFragmentActivity extends Fragment {
 		boolean isKokoro = _isKokoroModel(activeModelType);
 		boolean isSupertonic = activeModelType.equalsIgnoreCase("supertonic");
 		if (activeModel.isEmpty()) {
-			binding.voiceNameTv.setText("No Model Selected");
+			binding.voiceNameTv.setText((!sp1.getString("active_cloud_provider", "").isEmpty() ? sp1.getString("active_model_name", "Cloud Voice") : "No Model Selected"));
 			binding.voiceNameTv.setTextColor(android.graphics.Color.parseColor("#EF4444"));
 			binding.opneDropdown.setVisibility(android.view.View.GONE);
 		} else {
@@ -1548,7 +1541,7 @@ public class GenerateFragmentActivity extends Fragment {
 		boolean isKokoro = _isKokoroModel(activeModelType);
 		boolean isSupertonic = activeModelType.equalsIgnoreCase("supertonic");
 		if (activeModel.isEmpty()) {
-			binding.voiceNameTv.setText("No Model Selected");
+			binding.voiceNameTv.setText((!sp1.getString("active_cloud_provider", "").isEmpty() ? sp1.getString("active_model_name", "Cloud Voice") : "No Model Selected"));
 			binding.voiceNameTv.setTextColor(android.graphics.Color.parseColor("#EF4444"));
 			binding.opneDropdown.setVisibility(android.view.View.GONE);
 		} else {
