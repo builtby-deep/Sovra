@@ -377,7 +377,7 @@ public final class ExtendedCloudProviders {
                 JSONObject body = new JSONObject();
                 body.put("text", text);
                 body.put("speaker", speaker);
-                String url = "https://api.cloudflare.com/client/v4/accounts/" + accountId + "/ai/run/@cf/deepgram/aura-2-en";
+                String url = "https://api.cloudflare.com/client/v4/accounts/" + accountId + "/ai/run/@cf/deepgram/aura-1";
                 Request req = new Request.Builder()
                         .url(url)
                         .header("Authorization", "Bearer " + token)
